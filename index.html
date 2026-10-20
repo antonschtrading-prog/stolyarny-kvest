@@ -1,0 +1,655 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Столярный квест</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@400;600;800&family=PT+Mono&display=swap">
+<style>
+/* Layout: blueprint header band over a birch-plywood workbench; stations grid, then one level at a time on a white "drawing sheet" card. */
+:root{
+  --birch:#F1E2C2;
+  --grain:#E7D2A7;
+  --sheet:#FFFCF4;
+  --ink:#1D2A48;
+  --ink-soft:#56607A;
+  --navy:#1D2A48;
+  --navy-line:rgba(255,255,255,.08);
+  --yellow:#F2B705;
+  --yellow-soft:#FFF1C2;
+  --ok:#23804D;
+  --ok-bg:#E0F2E6;
+  --bad:#BF3F28;
+  --bad-bg:#FBE3DC;
+  --wood:#E3C38C;
+  --wood-dark:#B88A4E;
+  --display:'Russo One','Arial Black',sans-serif;
+  --body:'Nunito','Trebuchet MS',Arial,sans-serif;
+  --mono:'PT Mono','Courier New',monospace;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{margin:0}
+[hidden]{display:none!important}
+body{
+  background-color:var(--birch);
+  background-image:repeating-linear-gradient(92deg,transparent 0 38px,var(--grain) 38px 40px,transparent 40px 90px);
+  color:var(--ink);font-family:var(--body);font-size:17px;line-height:1.5;
+}
+.wrap{max-width:1000px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+h1,h2,h3{font-family:var(--display);font-weight:400;line-height:1.15;text-wrap:balance;margin:0}
+p{margin:0}
+.band{
+  background-color:var(--navy);
+  background-image:linear-gradient(var(--navy-line) 1px,transparent 1px),linear-gradient(90deg,var(--navy-line) 1px,transparent 1px);
+  background-size:24px 24px;color:#F4F1EA;
+}
+.head{padding-block:28px 26px;display:flex;flex-wrap:wrap;gap:20px;align-items:flex-end;justify-content:space-between}
+.head > div:first-child{min-width:0;max-width:620px;display:flex;flex-direction:column;gap:8px}
+.eyebrow{font-size:13px;letter-spacing:.08em;text-transform:uppercase;font-weight:800}
+.band .eyebrow{color:var(--yellow)}
+h1{font-size:clamp(34px,6vw,54px);color:#fff}
+.sub{color:#D5DBEA;max-width:56ch}
+.score{background:var(--yellow);color:var(--ink);border:2px solid #000;border-radius:12px;padding:10px 16px;display:flex;flex-direction:column;gap:2px;min-width:170px}
+.score b{font-family:var(--display);font-weight:400;font-size:26px;font-variant-numeric:tabular-nums}
+.score span{font-weight:800;font-size:15px}
+main{padding-block:28px 48px;display:flex;flex-direction:column;gap:28px}
+#hub{display:flex;flex-direction:column;gap:32px}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:16px}
+.station{
+  font:inherit;color:var(--ink);text-align:left;cursor:pointer;
+  background:var(--sheet);border:2px solid var(--ink);border-radius:12px;box-shadow:4px 4px 0 var(--ink);
+  padding:16px;display:flex;flex-direction:column;gap:6px;min-height:150px;transition:transform .15s,box-shadow .15s;
+}
+.station:hover{transform:translate(-2px,-2px);box-shadow:6px 6px 0 var(--ink)}
+.station .eyebrow{color:var(--ink-soft)}
+.station h3{font-size:21px}
+.station .task{color:var(--ink-soft);font-size:15px}
+.station .stars{margin-top:auto;font-size:22px;letter-spacing:2px;color:var(--yellow);-webkit-text-stroke:1px var(--ink)}
+.station .stars .dim{color:transparent}
+.station.is-final{background:var(--yellow-soft)}
+button:focus-visible,.opt:focus-visible{outline:3px solid var(--yellow);outline-offset:3px}
+.cheat{display:flex;flex-direction:column;gap:16px}
+.cheat h2{font-size:28px}
+.cheat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}
+.cheat-item{background:var(--sheet);border:2px solid var(--ink);border-radius:12px;padding:16px 18px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.cheat-item h3{font-size:18px}
+.cheat-item ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.mono{font-family:var(--mono)}
+.btn{
+  font:inherit;font-weight:800;cursor:pointer;color:var(--ink);
+  background:var(--yellow);border:2px solid var(--ink);border-radius:10px;box-shadow:3px 3px 0 var(--ink);
+  padding:10px 18px;min-height:48px;
+}
+.btn:hover{background:#FFC92E}
+.btn.ghost{background:var(--sheet)}
+.btn.ghost:hover{background:var(--yellow-soft)}
+.btn:disabled{opacity:.45;cursor:default}
+.linkish{font:inherit;color:var(--ink-soft);background:none;border:0;text-decoration:underline;cursor:pointer;align-self:flex-start;padding:6px 0}
+.row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.lvl-head{display:flex;flex-direction:column;gap:10px}
+.lvl-head .eyebrow{color:var(--ink-soft)}
+.lvl-head h2{font-size:clamp(28px,5vw,40px)}
+.stage{background:var(--sheet);border:2px solid var(--ink);border-radius:14px;box-shadow:5px 5px 0 var(--ink);padding:clamp(16px,4vw,32px);display:flex;flex-direction:column;gap:18px;min-width:0}
+.lead{font-size:19px;font-weight:600;max-width:62ch}
+.opts{display:flex;flex-direction:column;gap:10px}
+.opts.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.opt{
+  font:inherit;color:var(--ink);text-align:left;cursor:pointer;
+  background:#fff;border:2px solid var(--ink);border-radius:10px;box-shadow:3px 3px 0 var(--ink);
+  padding:12px 16px;min-height:52px;
+}
+.opt:hover:not(:disabled){background:var(--yellow-soft)}
+.opt:disabled{cursor:default}
+.opt.is-ok{background:var(--ok-bg);border-color:var(--ok);box-shadow:3px 3px 0 var(--ok)}
+.opt.is-bad{background:var(--bad-bg);border-color:var(--bad);box-shadow:3px 3px 0 var(--bad)}
+.note{border:2px solid var(--ink);border-radius:10px;padding:12px 16px;max-width:70ch}
+.note.ok{background:var(--ok-bg);border-color:var(--ok)}
+.note.bad{background:var(--bad-bg);border-color:var(--bad)}
+.note.info{background:var(--yellow-soft)}
+.chain{margin:0;padding:0;list-style:none;counter-reset:st;display:flex;flex-direction:column;gap:8px}
+.chain li{counter-increment:st;display:flex;gap:12px;align-items:baseline;background:var(--ok-bg);border:2px solid var(--ok);border-radius:10px;padding:10px 14px}
+.chain li::before{content:counter(st);font-family:var(--display);font-size:20px;color:var(--ok)}
+.scene{width:100%;max-width:420px;height:auto;display:block}
+.reveal{display:flex;flex-direction:column;gap:14px}
+.statement{font-size:22px;font-weight:800;max-width:50ch}
+.progress{font-family:var(--mono);color:var(--ink-soft);font-size:15px}
+/* lathe */
+.spin{animation:spin 3s linear infinite;transform-box:view-box;transform-origin:110px 90px}
+.flow{animation:flow .5s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes flow{to{stroke-dashoffset:-32}}
+/* plywood */
+.ply-wrap{display:flex;flex-wrap:wrap;gap:16px;align-items:flex-end}
+.ply{position:relative;height:200px;width:270px;max-width:100%}
+.ply-empty{position:absolute;inset:auto 0 40px 0;color:var(--ink-soft)}
+.layer{position:absolute;left:calc(var(--i) * 9px);bottom:calc(var(--i) * 9px);width:180px;height:110px;border:2px solid var(--ink);border-radius:4px;box-shadow:2px 2px 0 rgba(29,42,72,.25);animation:drop .25s ease-out}
+.layer.h{background:repeating-linear-gradient(0deg,#EED6A6 0 7px,#D7B277 7px 9px)}
+.layer.v{background:repeating-linear-gradient(90deg,#EED6A6 0 7px,#D7B277 7px 9px)}
+.ply.pressed{animation:squash .7s ease-in-out}
+.ply-count{font-size:20px}
+@keyframes drop{from{transform:translateY(-24px);opacity:0}to{transform:none;opacity:1}}
+@keyframes squash{40%{transform:scaleY(.82)}100%{transform:none}}
+/* cut */
+.cut{display:flex;flex-direction:column;gap:6px;align-items:flex-start}
+.cut svg{width:100%;max-width:300px;height:auto}
+.dims{font-size:18px}
+/* sandpaper */
+.grits{display:flex;flex-wrap:wrap;gap:12px;min-height:124px}
+.grit{
+  font:inherit;cursor:pointer;width:96px;height:120px;border:2px solid var(--ink);border-radius:8px;box-shadow:3px 3px 0 var(--ink);
+  display:flex;align-items:flex-end;justify-content:center;padding:0 0 8px;
+  background-color:#8A7861;
+  background-image:radial-gradient(circle,#3B3229 36%,transparent 42%),radial-gradient(circle,#C2B092 26%,transparent 32%);
+  background-size:var(--s) var(--s),calc(var(--s) * 1.35) calc(var(--s) * 1.35);
+  background-position:0 0,3px 2px;
+}
+.grit span{background:#fff;border:2px solid var(--ink);border-radius:6px;padding:1px 8px;font-family:var(--mono);font-weight:700;color:var(--ink)}
+.grit:disabled{cursor:default}
+.slot-label{font-weight:800;color:var(--ink-soft);font-size:15px}
+/* result */
+.result{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.big-stars{font-size:56px;letter-spacing:6px;line-height:1;color:var(--yellow);-webkit-text-stroke:2px var(--ink)}
+.big-stars .dim{color:transparent}
+.result h3{font-size:28px}
+.legend{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:4px}
+.shake{animation:shake .4s}
+@keyframes shake{20%{transform:translateX(-6px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media (max-width:480px){.head{padding-block:22px}.score{min-width:0}}
+</style>
+</head>
+<body>
+
+<header class="band">
+  <div class="wrap head">
+    <div>
+      <p class="eyebrow">Технология · 5 класс · к проверочной</p>
+      <h1>Столярный квест</h1>
+      <p class="sub">Восемь станций мастерской: от бревна до наждачки. Проходи станции в любом порядке и собирай звёзды. На последней станции объясни всё своими словами.</p>
+    </div>
+    <div class="score" aria-live="polite"><b id="score-num">0 / 24 ★</b><span id="score-rank">Ученик</span></div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section id="hub">
+    <div class="grid" id="stations"></div>
+    <section class="cheat" aria-labelledby="cheat-h">
+      <h2 id="cheat-h">Шпаргалка</h2>
+      <p>Всё, что спросят на проверочной, коротко. Прочитай перед игрой или после.</p>
+      <div class="cheat-grid" id="cheat"></div>
+    </section>
+    <button type="button" class="linkish" id="reset">Начать заново и стереть звёзды</button>
+  </section>
+
+  <section id="level" hidden>
+    <div class="lvl-head">
+      <button type="button" class="btn ghost" id="back" style="align-self:flex-start">← В мастерскую</button>
+      <p class="eyebrow" id="lvl-tool"></p>
+      <h2 id="lvl-name"></h2>
+    </div>
+    <div class="stage" id="stage" style="margin-top:16px"></div>
+  </section>
+</main>
+
+<script>
+(function(){
+const $=(s,r)=>(r||document).querySelector(s);
+function el(html){const t=document.createElement('template');t.innerHTML=html.trim();return t.content.firstElementChild}
+function shuffle(a){a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function shake(n){n.classList.remove('shake');void n.offsetWidth;n.classList.add('shake')}
+function say(box,text,kind){box.className='note '+kind;box.innerHTML=text;box.hidden=false}
+function starsOf(m){return m===0?3:(m<=2?2:1)}
+
+/* ---------- content ---------- */
+const CHEAT=[
+ {h:'Как делают шпон',items:[
+   'Бревно очищают от коры.',
+   'Бревно распаривают в горячей воде или паром, чтобы древесина стала мягкой.',
+   'На лущильном станке бревно вращается, а длинный нож срезает тонкую ленту древесины.',
+   'Ленту режут на листы и сушат. Это лущёный шпон.',
+   'Строганый шпон срезают ножом с бруса. У него красивый рисунок, им отделывают мебель.']},
+ {h:'Как делают фанеру',items:[
+   'Фанера состоит из склеенных листов шпона.',
+   'Листы мажут клеем и кладут крест-накрест: волокна соседних слоёв перпендикулярны.',
+   'Слоёв всегда нечётное число: 3, 5, 7…',
+   'Пакет сжимают в горячем прессе, потом обрезают и шлифуют.',
+   'Крест-накрест — чтобы фанера была прочной, не раскалывалась и не коробилась.']},
+ {h:'Виды пиломатериалов',items:[
+   'Доска: толщина до 100 мм, ширина больше двух толщин.',
+   'Брусок: толщина до 100 мм, ширина не больше двух толщин.',
+   'Брус: и толщина, и ширина больше 100 мм.',
+   'Горбыль (обапол): боковая часть бревна, одна сторона пропилена, другая круглая.',
+   'Ещё бывают пластина (бревно распилено вдоль пополам) и четвертина (на четыре части).']},
+ {h:'Пилка лобзика',items:[
+   'Зубья пилки смотрят вниз, к ручке.',
+   'Лобзик пилит при движении вниз, и заготовка прижимается к столику.',
+   'Пилку крепко зажимают и натягивают: натянутая пилка звенит, если по ней щёлкнуть.']},
+ {h:'Правила выпиливания лобзиком',items:[
+   'Заготовку кладут на выпиловочный столик и прижимают рукой.',
+   'Лобзик держат вертикально.',
+   'Пилят плавно, вверх-вниз, без сильного нажима.',
+   'На поворотах поворачивают заготовку, а пилка продолжает двигаться.',
+   'Для внутреннего выреза сначала сверлят отверстие и продевают в него пилку.',
+   'Пальцы держат подальше от линии реза, низко не наклоняются.']},
+ {h:'Линии чертежа',items:[
+   'Сплошная толстая основная: видимый контур детали.',
+   'Сплошная тонкая: размерные и выносные линии, штриховка.',
+   'Штриховая: невидимый контур.',
+   'Штрихпунктирная тонкая: осевые и центровые линии.',
+   'Штрихпунктирная с двумя точками: линии сгиба на развёртках.',
+   'Сплошная волнистая: линия обрыва.']},
+ {h:'Наждачная бумага',items:[
+   'Зернистость — это размер абразивных зёрен (песчинок) на шкурке.',
+   'Число с буквой P показывает, сколько отверстий на дюйм в сите, через которое просеивали зёрна.',
+   'Чем больше число, тем мельче зерно: P40 — крупная, P240 — мелкая.',
+   'Шлифуют сначала крупной, потом мелкой, вдоль волокон.',
+   'На старой советской шкурке без буквы P номер — размер зерна в сотых долях миллиметра. Там наоборот: больше номер — крупнее зерно.']}
+];
+
+const LATHE=`<svg class="scene" viewBox="0 0 330 180" role="img" aria-label="Лущильный станок: бревно вращается, нож снимает ленту шпона">
+ <rect x="0" y="0" width="330" height="180" rx="10" fill="#E9EEF7"/>
+ <g class="spin">
+  <circle cx="110" cy="90" r="62" fill="#DDB77E" stroke="#1D2A48" stroke-width="3"/>
+  <circle cx="110" cy="90" r="46" fill="none" stroke="#B88A4E" stroke-width="2"/>
+  <circle cx="110" cy="90" r="30" fill="none" stroke="#B88A4E" stroke-width="2"/>
+  <circle cx="110" cy="90" r="14" fill="none" stroke="#B88A4E" stroke-width="2"/>
+  <line x1="110" y1="90" x2="110" y2="30" stroke="#8A6A3A" stroke-width="3"/>
+  <circle cx="110" cy="90" r="5" fill="#1D2A48"/>
+ </g>
+ <rect x="168" y="80" width="150" height="9" fill="#EFD3A0" stroke="#1D2A48" stroke-width="2"/>
+ <line class="flow" x1="170" y1="84.5" x2="316" y2="84.5" stroke="#B88A4E" stroke-width="2" stroke-dasharray="6 10"/>
+ <polygon points="172,96 318,96 318,112 180,112" fill="#9AA3AD" stroke="#1D2A48" stroke-width="2"/>
+ <text x="245" y="72" text-anchor="middle" font-family="Nunito, sans-serif" font-size="14" font-weight="800" fill="#1D2A48">лента шпона</text>
+ <text x="245" y="132" text-anchor="middle" font-family="Nunito, sans-serif" font-size="14" font-weight="800" fill="#1D2A48">нож</text>
+ <text x="110" y="172" text-anchor="middle" font-family="Nunito, sans-serif" font-size="14" font-weight="800" fill="#1D2A48">бревно вращается</text>
+</svg>`;
+
+/* ---------- levels ---------- */
+function doneButton(done,getM){const b=el('<button type="button" class="btn">Получить звёзды</button>');b.addEventListener('click',()=>done(getM()));return b}
+
+function levelShpon(stage,done){
+ const steps=['Бревно очищают от коры','Бревно распаривают в горячей воде или паром, чтобы древесина стала мягкой','На лущильном станке бревно вращается, а длинный нож срезает с него тонкую ленту древесины','Ленту режут на листы и сушат. Получился шпон'];
+ let next=0,m=0;
+ stage.innerHTML=`<p class="lead">Как делают шпон? Нажимай шаги по порядку: что делают сначала, что потом.</p>
+  <ol class="chain" id="chain"></ol><div class="opts" id="opts"></div><p class="note" id="msg" hidden></p><div class="reveal" id="after"></div>`;
+ const opts=$('#opts',stage),chain=$('#chain',stage),msg=$('#msg',stage),after=$('#after',stage);
+ shuffle([0,1,2,3]).forEach(i=>{
+  const b=el(`<button type="button" class="opt">${steps[i]}</button>`);
+  b.addEventListener('click',()=>{
+   if(i===next){b.remove();chain.append(el(`<li>${steps[i]}</li>`));next++;msg.hidden=true;
+    if(next===steps.length){opts.remove();
+     after.append(el(LATHE));
+     after.append(el(`<p class="note ok">Так получают <b>лущёный шпон</b>: лента сходит с бревна, как бумага с рулона. Из него делают фанеру. Ещё бывает <b>строганый шпон</b>: нож срезает тонкие листы с бруса. У него красивый рисунок древесины, им отделывают мебель.</p>`));
+     after.append(doneButton(done,()=>m));}
+   }else{m++;shake(b);say(msg,'Пока рано. Подумай, что нужно сделать до этого.','bad')}
+  });
+  opts.append(b);
+ });
+}
+
+function levelFanera(stage,done){
+ let layers=[],m=0;
+ stage.innerHTML=`<p class="lead">Собери лист фанеры из шпона. Добавляй слои и выбирай, куда идут волокна. Потом отправляй под пресс.</p>
+  <div class="ply-wrap"><div class="ply" id="ply"></div><p class="ply-count mono" id="cnt"></p></div>
+  <div class="row" id="ctrl">
+   <button type="button" class="btn ghost" data-a="h">+ слой, волокна ⟷</button>
+   <button type="button" class="btn ghost" data-a="v">+ слой, волокна ↕</button>
+   <button type="button" class="btn ghost" data-a="del">Убрать верхний</button>
+   <button type="button" class="btn" data-a="press">Под пресс!</button>
+  </div><p class="note" id="msg" hidden></p><div class="reveal" id="after"></div>`;
+ const ply=$('#ply',stage),cnt=$('#cnt',stage),msg=$('#msg',stage),ctrl=$('#ctrl',stage),after=$('#after',stage);
+ function draw(){
+  ply.innerHTML=layers.length?layers.map((d,i)=>`<div class="layer ${d}" style="--i:${i}"></div>`).join(''):'<p class="ply-empty">Пока пусто. Положи первый лист шпона.</p>';
+  cnt.textContent='Слоёв: '+layers.length;
+ }
+ draw();
+ ctrl.addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b)return;const a=b.dataset.a;
+  if(a==='h'||a==='v'){if(layers.length>=9){say(msg,'Хватит: 9 слоёв для нашего листа достаточно.','info');return}layers.push(a);msg.hidden=true;draw()}
+  else if(a==='del'){layers.pop();msg.hidden=true;draw()}
+  else if(a==='press'){
+   const n=layers.length;let bad='';
+   if(n<3)bad='Слишком тонко. В фанере минимум 3 слоя шпона.';
+   else if(layers.some((d,i)=>i>0&&d===layers[i-1]))bad='Два соседних слоя лежат волокнами в одну сторону. Такая фанера легко расколется. Соседние слои кладут крест-накрест.';
+   else if(n%2===0)bad='Слоёв чётное число. Фанеру делают из нечётного числа слоёв: 3, 5, 7… Тогда верхний и нижний слой смотрят в одну сторону, и лист не коробится.';
+   if(bad){m++;shake(ply);say(msg,bad,'bad');return}
+   ply.classList.add('pressed');ctrl.querySelectorAll('button').forEach(x=>x.disabled=true);
+   say(msg,'Пресс сжал листы, клей застыл. Фанера готова!','ok');
+   after.append(el(`<p class="note info">Так и делают фанеру: листы шпона мажут клеем, кладут <b>крест-накрест</b>, слоёв <b>нечётное число</b>. Пакет сжимают в <b>горячем прессе</b>, потом обрезают и шлифуют. Крест-накрест нужно, чтобы фанера была прочной, не раскалывалась и не коробилась.</p>`));
+   after.append(doneButton(done,()=>m));
+  }
+ });
+}
+
+const KINDS={
+ doska:{n:'Доска',r:'Доска: толщина до 100 мм, а ширина больше двух толщин.'},
+ brusok:{n:'Брусок',r:'Брусок: толщина до 100 мм, а ширина не больше двух толщин.'},
+ brus:{n:'Брус',r:'Брус: и толщина, и ширина больше 100 мм.'},
+ gorb:{n:'Горбыль (обапол)',r:'Горбыль: боковая часть бревна. Одна сторона пропилена, другая осталась круглой.'}
+};
+function cutSvg(it){
+ const k=0.8,F='font-family="PT Mono, monospace" font-size="15" font-weight="700" fill="#1D2A48"';
+ if(it.k==='gorb'){
+  const W=120,x=70,y=60,D=34;
+  return `<svg viewBox="0 0 260 200" role="img" aria-label="Сечение горбыля">
+   <path d="M${x},${y} L${x+W},${y} Q${x+W/2},${y+2*D} ${x},${y} Z" fill="#E3C38C" stroke="#1D2A48" stroke-width="2"/>
+   <path d="M${x+W},${y} Q${x+W/2},${y+2*D} ${x},${y}" fill="none" stroke="#6B4423" stroke-width="6"/>
+   <text x="130" y="${y-10}" text-anchor="middle" ${F}>150</text></svg>`;
+ }
+ const W=it.w*k,T=it.t*k,x=(260-W)/2,y=(180-T)/2;
+ return `<svg viewBox="0 0 260 200" role="img" aria-label="Сечение ${it.t} на ${it.w} миллиметров">
+  <rect x="${x}" y="${y}" width="${W}" height="${T}" fill="#E3C38C" stroke="#1D2A48" stroke-width="2"/>
+  <path d="M${x},${y+T*0.75} Q${x+W/2},${y+T*0.15} ${x+W},${y+T*0.75}" fill="none" stroke="#B88A4E" stroke-width="2"/>
+  <path d="M${x+W*0.15},${y+T} Q${x+W/2},${y+T*0.45} ${x+W*0.85},${y+T}" fill="none" stroke="#B88A4E" stroke-width="2"/>
+  <text x="${x+W/2}" y="${y+T+20}" text-anchor="middle" ${F}>${it.w}</text>
+  <text x="${x-8}" y="${y+T/2+5}" text-anchor="end" ${F}>${it.t}</text></svg>`;
+}
+function levelPilo(stage,done){
+ const pool=[{t:25,w:150,k:'doska'},{t:50,w:50,k:'brusok'},{t:150,w:150,k:'brus'},{t:40,w:200,k:'doska'},{t:60,w:100,k:'brusok'},{t:120,w:180,k:'brus'}];
+ const rounds=shuffle(shuffle(pool).slice(0,5).concat([{k:'gorb'}]));
+ let r=0,m=0;
+ function show(){
+  const it=rounds[r];
+  const dims=it.k==='gorb'?'Ширина 150 мм · одна сторона круглая, с корой':`Толщина ${it.t} мм · ширина ${it.w} мм`;
+  stage.innerHTML=`<p class="progress">Распил ${r+1} из ${rounds.length}</p>
+   <p class="lead">На пилораме распилили бревно. Посмотри на сечение и размеры. Что получилось?</p>
+   <div class="cut">${cutSvg(it)}<p class="mono dims">${dims}</p></div>
+   <div class="opts grid2" id="opts"></div><p class="note" id="msg" hidden></p><div id="nx"></div>`;
+  const opts=$('#opts',stage),msg=$('#msg',stage),nx=$('#nx',stage);
+  ['doska','brusok','brus','gorb'].forEach(key=>{
+   const b=el(`<button type="button" class="opt" data-k="${key}">${KINDS[key].n}</button>`);
+   b.addEventListener('click',()=>{
+    opts.querySelectorAll('button').forEach(x=>{x.disabled=true;if(x.dataset.k===it.k)x.classList.add('is-ok')});
+    let extra='';
+    if(it.k!=='gorb')extra=it.t>100?'':` Здесь две толщины: ${it.t} × 2 = ${it.t*2} мм, а ширина ${it.w} мм.`;
+    if(key===it.k){say(msg,'Верно! '+KINDS[it.k].r+extra,'ok')}
+    else{m++;b.classList.add('is-bad');shake(b);say(msg,'Не то. '+KINDS[it.k].r+extra,'bad')}
+    const last=r===rounds.length-1;
+    const nb=el(`<button type="button" class="btn">${last?'Получить звёзды':'Следующий распил'}</button>`);
+    nb.addEventListener('click',()=>{if(last)done(m);else{r++;show()}});
+    nx.append(nb);
+   });
+   opts.append(b);
+  });
+ }
+ show();
+}
+
+function lzSvg(down){
+ let teeth='';
+ for(let y=60;y<=236;y+=11){
+  teeth+=down?`<polygon points="208,${y} 200,${y+10} 208,${y+10}" fill="#6E7B88"/>`:`<polygon points="208,${y} 200,${y} 208,${y+10}" fill="#6E7B88"/>`;
+ }
+ return `<svg class="scene" viewBox="0 0 300 350" role="img" aria-label="Лобзик, зубья пилки смотрят ${down?'вниз':'вверх'}" style="max-width:300px">
+  <path d="M212,42 L72,42 Q52,42 52,62 L52,240 Q52,260 72,260 L212,260" fill="none" stroke="#1D2A48" stroke-width="9" stroke-linecap="round"/>
+  <rect x="200" y="30" width="24" height="22" rx="3" fill="#9AA3AD" stroke="#1D2A48" stroke-width="2"/>
+  <rect x="200" y="250" width="24" height="22" rx="3" fill="#9AA3AD" stroke="#1D2A48" stroke-width="2"/>
+  <line x1="210" y1="52" x2="210" y2="250" stroke="#6E7B88" stroke-width="4"/>
+  ${teeth}
+  <rect x="198" y="274" width="28" height="68" rx="13" fill="#B5652E" stroke="#1D2A48" stroke-width="2"/>
+  <text x="186" y="314" text-anchor="end" font-family="Nunito, sans-serif" font-size="16" font-weight="800" fill="#1D2A48">ручка</text>
+  <text x="150" y="150" text-anchor="middle" font-family="Nunito, sans-serif" font-size="16" font-weight="800" fill="#56607A">пилка →</text>
+ </svg>`;
+}
+function levelLobzik(stage,done){
+ let down=false,m=0;
+ stage.innerHTML=`<p class="lead">Вставь пилку в лобзик. Переворачивай пилку, пока зубья не будут смотреть куда надо, и закрепи её.</p>
+  <div id="lz">${lzSvg(down)}</div>
+  <div class="row" id="ctrl"><button type="button" class="btn ghost" id="flip">Перевернуть пилку</button><button type="button" class="btn" id="fix">Закрепить пилку</button></div>
+  <p class="note" id="msg" hidden></p><div class="reveal" id="after"></div>`;
+ const lz=$('#lz',stage),msg=$('#msg',stage),after=$('#after',stage);
+ $('#flip',stage).addEventListener('click',()=>{down=!down;lz.innerHTML=lzSvg(down);msg.hidden=true});
+ $('#fix',stage).addEventListener('click',()=>{
+  if(!down){m++;shake(lz);say(msg,'Так зубья смотрят вверх, от ручки. Лобзик будет рвать край и подбрасывать заготовку со столика. Переверни пилку.','bad');return}
+  $('#flip',stage).disabled=true;$('#fix',stage).disabled=true;
+  say(msg,'Верно! Зубья смотрят <b>вниз, к ручке</b>. Лобзик пилит при движении вниз, и заготовка прижимается к столику.','ok');
+  const q=el(`<div class="reveal"><p class="lead">Ещё вопрос: как понять, что пилка натянута правильно?</p><div class="opts" id="q2"></div><p class="note" id="msg2" hidden></p></div>`);
+  after.append(q);
+  const q2=$('#q2',q),msg2=$('#msg2',q);
+  [['Если щёлкнуть по пилке, она звенит',true],['Пилка немного провисает',false],['Пилка выгнута дугой',false]].forEach(([t,ok])=>{
+   const b=el(`<button type="button" class="opt">${t}</button>`);
+   b.addEventListener('click',()=>{
+    if(ok){q2.querySelectorAll('button').forEach(x=>x.disabled=true);b.classList.add('is-ok');
+     say(msg2,'Да. Натянутая пилка звенит и не ломается. Слабая пилка гнётся, уводит рез в сторону и быстро лопается.','ok');
+     q.append(doneButton(done,()=>m));}
+    else{m++;b.classList.add('is-bad');b.disabled=true;shake(b);say(msg2,'Нет. Слабо натянутая пилка уводит рез в сторону и быстро лопается.','bad')}
+   });
+   q2.append(b);
+  });
+ });
+}
+
+const RULES=[
+ {s:'Заготовку кладут на выпиловочный столик и прижимают рукой.',ok:true,e:'Столик с вырезом держит заготовку, а пилка ходит в вырезе.'},
+ {s:'Лобзик держат с наклоном, так пилить быстрее.',ok:false,e:'Лобзик держат вертикально. Иначе край выйдет кривым, а пилка сломается.'},
+ {s:'Пилят плавно, вверх-вниз, без сильного нажима.',ok:true,e:'Сильный нажим ломает пилку.'},
+ {s:'На повороте поворачивают лобзик, а заготовку держат неподвижно.',ok:false,e:'Наоборот: поворачивают заготовку, а пилка продолжает двигаться на месте.'},
+ {s:'Пилить можно и слабо натянутой пилкой.',ok:false,e:'Слабая пилка уводит рез в сторону и лопается.'},
+ {s:'Для внутреннего выреза сначала сверлят отверстие и продевают в него пилку.',ok:true,e:'Пилку пропускают в отверстие и потом закрепляют во втором зажиме.'},
+ {s:'Пальцы держат подальше от линии реза.',ok:true,e:'Так пилка не заденет руку.'},
+ {s:'Низко наклоняться к заготовке правильно, так лучше видно.',ok:false,e:'Опилки могут попасть в глаза. Сидят прямо.'}
+];
+function levelRules(stage,done){
+ const list=shuffle(RULES);let r=0,m=0;
+ function show(){
+  const it=list[r];
+  stage.innerHTML=`<p class="progress">Правило ${r+1} из ${list.length}</p><p class="statement">${it.s}</p>
+   <div class="opts grid2" id="opts"><button type="button" class="opt" data-v="1">Верно</button><button type="button" class="opt" data-v="0">Неверно</button></div>
+   <p class="note" id="msg" hidden></p><div id="nx"></div>`;
+  const opts=$('#opts',stage),msg=$('#msg',stage),nx=$('#nx',stage);
+  opts.addEventListener('click',e=>{
+   const b=e.target.closest('button');if(!b||b.disabled)return;
+   const pick=b.dataset.v==='1';
+   opts.querySelectorAll('button').forEach(x=>x.disabled=true);
+   if(pick===it.ok){b.classList.add('is-ok');say(msg,'Правильно! '+it.e,'ok')}
+   else{m++;b.classList.add('is-bad');shake(b);say(msg,(it.ok?'Это правило верное. ':'Это неверно. ')+it.e,'bad')}
+   const last=r===list.length-1;
+   const nb=el(`<button type="button" class="btn">${last?'Получить звёзды':'Следующее правило'}</button>`);
+   nb.addEventListener('click',()=>{if(last)done(m);else{r++;show()}});
+   nx.append(nb);
+  });
+ }
+ show();
+}
+
+const LINES=[
+ {id:'thick',name:'Сплошная толстая основная',p:'Видимый контур: края детали, которые видно',d:'<line x1="10" y1="22" x2="290" y2="22" stroke="#1D2A48" stroke-width="4"/>'},
+ {id:'thin',name:'Сплошная тонкая',p:'Размерные и выносные линии, штриховка',d:'<line x1="10" y1="22" x2="290" y2="22" stroke="#1D2A48" stroke-width="1.5"/>'},
+ {id:'dash',name:'Штриховая',p:'Невидимый контур: то, что спрятано внутри детали',d:'<line x1="10" y1="22" x2="290" y2="22" stroke="#1D2A48" stroke-width="2.5" stroke-dasharray="12 7"/>'},
+ {id:'dashdot',name:'Штрихпунктирная тонкая',p:'Осевые и центровые линии: середина детали, центр отверстия',d:'<line x1="10" y1="22" x2="290" y2="22" stroke="#1D2A48" stroke-width="1.5" stroke-dasharray="22 5 2 5"/>'},
+ {id:'dash2',name:'Штрихпунктирная с двумя точками',p:'Линии сгиба на развёртках',d:'<line x1="10" y1="22" x2="290" y2="22" stroke="#1D2A48" stroke-width="1.5" stroke-dasharray="22 5 2 5 2 5"/>'},
+ {id:'wave',name:'Сплошная волнистая',p:'Линия обрыва: деталь нарисована не целиком',d:'<path d="M10,22 q17.5,-12 35,0 t35,0 t35,0 t35,0 t35,0 t35,0 t35,0 t35,0" fill="none" stroke="#1D2A48" stroke-width="1.5"/>'}
+];
+const PLATE=`<svg class="scene" viewBox="0 0 340 220" role="img" aria-label="Чертёж пластины с отверстием" style="max-width:380px">
+ <rect x="0" y="0" width="340" height="220" rx="8" fill="#F3F6FB"/>
+ <rect x="60" y="34" width="200" height="110" fill="none" stroke="#1D2A48" stroke-width="3.5"/>
+ <circle cx="160" cy="89" r="24" fill="none" stroke="#1D2A48" stroke-width="3.5"/>
+ <line x1="160" y1="52" x2="160" y2="126" stroke="#1D2A48" stroke-width="1.2" stroke-dasharray="14 4 2 4"/>
+ <line x1="118" y1="89" x2="202" y2="89" stroke="#1D2A48" stroke-width="1.2" stroke-dasharray="14 4 2 4"/>
+ <line x1="60" y1="128" x2="260" y2="128" stroke="#1D2A48" stroke-width="2" stroke-dasharray="9 5"/>
+ <line x1="60" y1="148" x2="60" y2="188" stroke="#1D2A48" stroke-width="1.2"/>
+ <line x1="260" y1="148" x2="260" y2="188" stroke="#1D2A48" stroke-width="1.2"/>
+ <line x1="60" y1="180" x2="260" y2="180" stroke="#1D2A48" stroke-width="1.2"/>
+ <polygon points="60,180 72,176 72,184" fill="#1D2A48"/><polygon points="260,180 248,176 248,184" fill="#1D2A48"/>
+ <text x="160" y="174" text-anchor="middle" font-family="PT Mono, monospace" font-size="15" fill="#1D2A48">200</text>
+</svg>`;
+function levelLines(stage,done){
+ const list=shuffle(LINES);let r=0,m=0;
+ function show(){
+  const it=list[r];
+  const choices=shuffle([it].concat(shuffle(LINES.filter(x=>x.id!==it.id)).slice(0,3)));
+  stage.innerHTML=`<p class="progress">Линия ${r+1} из ${list.length}</p><p class="lead">Для чего на чертеже нужна такая линия?</p>
+   <svg viewBox="0 0 300 44" role="img" aria-label="Образец линии" style="width:100%;max-width:420px;height:auto;background:#F3F6FB;border-radius:8px">${it.d}</svg>
+   <div class="opts" id="opts"></div><p class="note" id="msg" hidden></p><div class="reveal" id="nx"></div>`;
+  const opts=$('#opts',stage),msg=$('#msg',stage),nx=$('#nx',stage);
+  choices.forEach(c=>{
+   const b=el(`<button type="button" class="opt" data-id="${c.id}">${c.p}</button>`);
+   b.addEventListener('click',()=>{
+    opts.querySelectorAll('button').forEach(x=>{x.disabled=true;if(x.dataset.id===it.id)x.classList.add('is-ok')});
+    const txt=`Это <b>${it.name.toLowerCase()}</b> линия. ${it.p}.`;
+    if(c.id===it.id)say(msg,'Верно! '+txt,'ok');else{m++;b.classList.add('is-bad');shake(b);say(msg,'Не то. '+txt,'bad')}
+    const last=r===list.length-1;
+    if(last){
+     nx.append(el(`<p class="lead">Вот как эти линии работают на настоящем чертеже пластины:</p>`));
+     nx.append(el(PLATE));
+     nx.append(el(`<ul class="legend"><li>толстая — контур пластины и отверстия</li><li>штрихпунктирные — оси отверстия</li><li>штриховая — невидимый уступ снизу</li><li>тонкие со стрелками — размер 200 мм</li></ul>`));
+     nx.append(doneButton(done,()=>m));
+    }else{
+     const nb=el('<button type="button" class="btn" style="align-self:flex-start">Следующая линия</button>');
+     nb.addEventListener('click',()=>{r++;show()});nx.append(nb);
+    }
+   });
+   opts.append(b);
+  });
+ }
+ show();
+}
+
+function levelShkurka(stage,done){
+ const grits=[40,80,120,180,240],size={40:12,80:9,120:7,180:5,240:4};
+ let next=0,m=0;
+ stage.innerHTML=`<p class="lead">Разложи наждачку от самой <b>крупной</b> к самой <b>мелкой</b>. Смотри на зёрна и на числа.</p>
+  <p class="slot-label">Твой ряд, от крупной к мелкой:</p><div class="grits" id="done-row" style="min-height:124px"></div>
+  <p class="slot-label">Листы на верстаке:</p><div class="grits" id="pile"></div>
+  <p class="note" id="msg" hidden></p><div class="reveal" id="after"></div>`;
+ const pile=$('#pile',stage),row=$('#done-row',stage),msg=$('#msg',stage),after=$('#after',stage);
+ shuffle(grits).forEach(g=>{
+  const b=el(`<button type="button" class="grit" style="--s:${size[g]}px" aria-label="Шкурка P${g}"><span>P${g}</span></button>`);
+  b.addEventListener('click',()=>{
+   if(g===grits[next]){b.disabled=true;row.append(b);next++;msg.hidden=true;if(next===grits.length){pile.previousElementSibling.remove();pile.remove();ask1()}}
+   else{m++;shake(b);say(msg,'Не этот. Чем больше число на шкурке, тем мельче зерно. Ищи самое крупное зерно из оставшихся.','bad')}
+  });
+  pile.append(b);
+ });
+ function quiz(box,q,opts,okText,after2){
+  const wrap=el(`<div class="reveal"><p class="lead">${q}</p><div class="opts"></div><p class="note" hidden></p></div>`);
+  box.append(wrap);const o=$('.opts',wrap),n=$('.note',wrap);
+  opts.forEach(([t,ok])=>{
+   const b=el(`<button type="button" class="opt">${t}</button>`);
+   b.addEventListener('click',()=>{
+    if(ok){o.querySelectorAll('button').forEach(x=>x.disabled=true);b.classList.add('is-ok');say(n,okText,'ok');after2()}
+    else{m++;b.disabled=true;b.classList.add('is-bad');shake(b);say(n,'Нет, подумай ещё.','bad')}
+   });
+   o.append(b);
+  });
+ }
+ function ask1(){
+  say(msg,'Отлично, ряд собран: P40 — самая крупная, P240 — самая мелкая.','ok');
+  quiz(after,'Что означает число на шкурке, например P120?',shuffle([
+   ['Сколько отверстий на 1 дюйм в сите, через которое просеивали зёрна. Чем больше число, тем мельче зерно',true],
+   ['Размер одного зерна в миллиметрах',false],
+   ['Сколько листов в упаковке',false],
+   ['Сколько раз можно использовать лист',false]]),
+   'Верно. Мелкие зёрна проходят через частое сито с большим числом отверстий, поэтому у мелкой шкурки число большое.',ask2);
+ }
+ function ask2(){
+  quiz(after,'С какой шкурки начинают шлифовать?',shuffle([
+   ['С крупной, потом переходят на мелкую',true],['С мелкой, потом переходят на крупную',false],['Всё равно с какой',false]]),
+   'Да. Крупная быстро снимает неровности, мелкая делает поверхность гладкой. Шлифуют вдоль волокон.',()=>{
+    after.append(el(`<p class="note info"><b>Зернистость</b> — это размер абразивных зёрен (песчинок), приклеенных к бумаге или ткани. P40–P60 — крупная шкурка для грубой обработки, P80–P120 — средняя, от P180 — мелкая, для окончательной отделки. На старой советской шкурке без буквы P номер означал размер зерна в сотых долях миллиметра, и там было наоборот: больше номер — крупнее зерно.</p>`));
+    after.append(doneButton(done,()=>m));
+   });
+ }
+}
+
+const FINAL=[
+ {q:'Как делают шпон?',a:'Бревно очищают от коры и распаривают, чтобы древесина стала мягкой. На лущильном станке бревно вращается, а нож срезает тонкую ленту. Её режут на листы и сушат.'},
+ {q:'Как делают фанеру? Почему слои кладут крест-накрест?',a:'Листы шпона мажут клеем, кладут так, чтобы волокна соседних слоёв были перпендикулярны, слоёв нечётное число. Сжимают в горячем прессе. Крест-накрест — для прочности, чтобы фанера не раскалывалась и не коробилась.'},
+ {q:'Чем доска отличается от бруска и бруса? Что такое горбыль?',a:'Доска: толщина до 100 мм, ширина больше двух толщин. Брусок: толщина до 100 мм, ширина не больше двух толщин. Брус: толщина и ширина больше 100 мм. Горбыль: боковая часть бревна, одна сторона пропилена, другая круглая.'},
+ {q:'Куда смотрят зубья пилки лобзика и почему?',a:'Вниз, к ручке. Лобзик пилит при движении вниз, и заготовка прижимается к столику.'},
+ {q:'Назови три правила выпиливания лобзиком.',a:'Например: заготовку кладут на выпиловочный столик; лобзик держат вертикально; пилят плавно без нажима; на поворотах поворачивают заготовку; пальцы держат подальше от линии реза.'},
+ {q:'Какие линии бывают на чертеже и для чего?',a:'Сплошная толстая — видимый контур. Сплошная тонкая — размерные и выносные. Штриховая — невидимый контур. Штрихпунктирная — осевые и центровые. С двумя точками — линии сгиба. Волнистая — линия обрыва.'},
+ {q:'Что такое зернистость и что значит номер на наждачке?',a:'Зернистость — размер абразивных зёрен. Номер с буквой P показывает, сколько отверстий на дюйм в сите: чем больше число, тем мельче зерно. Шлифуют сначала крупной, потом мелкой.'}
+];
+function levelFinal(stage,done){
+ let r=0,m=0;
+ function show(){
+  const it=FINAL[r];
+  stage.innerHTML=`<p class="progress">Вопрос ${r+1} из ${FINAL.length}</p>
+   <p class="note info">Ответь вслух или расскажи взрослому. Потом открой образец и честно отметь, получилось ли.</p>
+   <p class="statement">${it.q}</p>
+   <button type="button" class="btn ghost" id="show" style="align-self:flex-start">Показать образец ответа</button>
+   <div class="reveal" id="ans" hidden><p class="note ok">${it.a}</p>
+    <div class="row"><button type="button" class="btn" id="yes">Я ответил так же</button><button type="button" class="btn ghost" id="no">Надо повторить</button></div></div>`;
+  const ans=$('#ans',stage);
+  $('#show',stage).addEventListener('click',e=>{e.currentTarget.hidden=true;ans.hidden=false});
+  const go=bad=>{if(bad)m++;if(r===FINAL.length-1)done(m);else{r++;show()}};
+  $('#yes',stage).addEventListener('click',()=>go(false));
+  $('#no',stage).addEventListener('click',()=>go(true));
+ }
+ show();
+}
+
+const LEVELS=[
+ {id:'shpon',tool:'Бревно',name:'Из бревна — шпон',task:'Расставь шаги по порядку',run:levelShpon},
+ {id:'fanera',tool:'Клей и пресс',name:'Собери фанеру',task:'Сложи слои шпона правильно',run:levelFanera},
+ {id:'pilo',tool:'Пилорама',name:'Что выпилили?',task:'Узнай пиломатериал по сечению',run:levelPilo},
+ {id:'lobzik',tool:'Лобзик',name:'Заряди лобзик',task:'Вставь пилку правильной стороной',run:levelLobzik},
+ {id:'rules',tool:'Выпиловочный столик',name:'Правила выпиливания',task:'Верно или неверно?',run:levelRules},
+ {id:'lines',tool:'Чертёж',name:'Линии чертежа',task:'Для чего нужна каждая линия',run:levelLines},
+ {id:'shkurka',tool:'Наждачка',name:'Зернистость',task:'Разложи шкурки и разгадай номер',run:levelShkurka},
+ {id:'final',tool:'Экзамен мастера',name:'Объясни сам',task:'Ответь своими словами, как на проверочной',run:levelFinal}
+];
+
+/* ---------- progress ---------- */
+const KEY='stolyar-quest-v1';
+let best={};
+try{best=JSON.parse(localStorage.getItem(KEY)||'{}')||{}}catch(e){best={}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(best))}catch(e){}}
+function total(){return LEVELS.reduce((s,l)=>s+(best[l.id]||0),0)}
+function rank(t){return t>=24?'Мастер золотые руки':t>=16?'Мастер':t>=8?'Подмастерье':'Ученик'}
+function renderHub(){
+ const g=$('#stations');g.innerHTML='';
+ LEVELS.forEach((l,i)=>{
+  const s=best[l.id]||0;
+  const b=el(`<button type="button" class="station${l.id==='final'?' is-final':''}">
+   <span class="eyebrow">${l.tool}</span><h3>${l.name}</h3><span class="task">${l.task}</span>
+   <span class="stars" aria-label="Звёзд: ${s} из 3">${'★'.repeat(s)}<span class="dim">${'★'.repeat(3-s)}</span></span></button>`);
+  b.addEventListener('click',()=>openLevel(i));
+  g.append(b);
+ });
+ const t=total();
+ $('#score-num').textContent=`${t} / 24 ★`;
+ $('#score-rank').textContent=rank(t);
+}
+function renderCheat(){
+ $('#cheat').innerHTML=CHEAT.map(c=>`<div class="cheat-item"><h3>${c.h}</h3><ul>${c.items.map(x=>`<li>${x}</li>`).join('')}</ul></div>`).join('');
+}
+const hub=$('#hub'),level=$('#level'),stage=$('#stage');
+function openLevel(i){
+ const l=LEVELS[i];
+ hub.hidden=true;level.hidden=false;
+ $('#lvl-tool').textContent=l.tool;$('#lvl-name').textContent=l.name;
+ stage.innerHTML='';
+ l.run(stage,m=>finish(i,m));
+ window.scrollTo(0,0);
+}
+function finish(i,m){
+ const l=LEVELS[i],s=starsOf(m);
+ best[l.id]=Math.max(best[l.id]||0,s);save();renderHub();
+ const msg=s===3?'Без единой ошибки!':s===2?'Почти идеально!':'Стоит пройти ещё раз';
+ const ni=LEVELS.findIndex((x,k)=>k>i&&(best[x.id]||0)<3);
+ stage.innerHTML=`<div class="result"><p class="big-stars" aria-label="Звёзд: ${s} из 3">${'★'.repeat(s)}<span class="dim">${'★'.repeat(3-s)}</span></p>
+  <h3>${msg}</h3><p>Ошибок: ${m}. Всего звёзд: ${total()} из 24, звание: ${rank(total())}.</p>
+  <div class="row" id="res-btns"></div></div>`;
+ const rb=$('#res-btns',stage);
+ const again=el('<button type="button" class="btn ghost">Пройти ещё раз</button>');again.addEventListener('click',()=>openLevel(i));rb.append(again);
+ if(ni>-1){const nx=el(`<button type="button" class="btn">Дальше: ${LEVELS[ni].name}</button>`);nx.addEventListener('click',()=>openLevel(ni));rb.append(nx)}
+ const back=el('<button type="button" class="btn ghost">В мастерскую</button>');back.addEventListener('click',goHub);rb.append(back);
+}
+function goHub(){level.hidden=true;hub.hidden=false;renderHub();window.scrollTo(0,0)}
+$('#back').addEventListener('click',goHub);
+let armed=false;
+$('#reset').addEventListener('click',e=>{
+ if(!armed){armed=true;e.currentTarget.textContent='Нажми ещё раз, чтобы стереть все звёзды';return}
+ best={};save();armed=false;e.currentTarget.textContent='Начать заново и стереть звёзды';renderHub();
+});
+renderHub();renderCheat();
+})();
+</script>
+
+</body>
+</html>
