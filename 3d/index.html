@@ -1,0 +1,2010 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>3D-мастерская</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Russo+One&family=Nunito:wght@400;600;800&family=PT+Mono&display=swap">
+<style>
+/* Layout: full-screen 3D workshop; HUD floats over it — top bar, station tags pinned to machines, a bottom-left task panel, right-side gauges. One deliberate evening look. */
+:root{
+  --bg:#121722;
+  --panel:rgba(15,20,32,.9);
+  --panel-2:rgba(255,255,255,.06);
+  --line:rgba(255,255,255,.12);
+  --fg:#F3EEE3;
+  --muted:#AEB6C8;
+  --yellow:#F2B705;
+  --yellow-ink:#1A1405;
+  --ok:#52C98E;
+  --bad:#FF6B57;
+  --display:'Russo One','Arial Black',sans-serif;
+  --body:'Nunito','Trebuchet MS',Arial,sans-serif;
+  --mono:'PT Mono','Courier New',monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);font-size:16px;line-height:1.45;overflow:hidden;-webkit-tap-highlight-color:transparent}
+#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;outline:none}
+.ui{position:fixed;inset:0;pointer-events:none;z-index:2}
+.ui .pe{pointer-events:auto}
+button{font:inherit;cursor:pointer}
+button:focus-visible{outline:3px solid var(--yellow);outline-offset:2px}
+.top{position:absolute;top:0;left:0;right:0;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;
+  padding-top:calc(12px + env(safe-area-inset-top,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+.brand{font-family:var(--display);font-size:20px;line-height:1.1;text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.brand small{display:block;font-family:var(--body);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--yellow);font-weight:800;margin-bottom:2px}
+.chips{display:flex;gap:8px;align-items:center}
+.chip{background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-weight:800;font-variant-numeric:tabular-nums}
+.chip b{color:var(--yellow)}
+.icon-btn{color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:999px;padding:7px 13px;font-weight:800}
+.icon-btn:hover{border-color:var(--yellow)}
+.tags{position:absolute;inset:0}
+.tag{position:absolute;left:0;top:0;transform:translate(-50%,-100%);color:var(--fg);background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px 13px;
+  display:flex;flex-direction:column;align-items:center;gap:1px;white-space:nowrap;box-shadow:0 10px 24px rgba(0,0,0,.35);transition:opacity .25s,border-color .2s,transform .15s}
+.tag::after{content:"";position:absolute;left:50%;bottom:-7px;width:12px;height:12px;background:inherit;border-right:1px solid var(--line);border-bottom:1px solid var(--line);transform:translateX(-50%) rotate(45deg)}
+.tag b{font-family:var(--display);font-weight:400;font-size:15px}
+.tag span{font-size:13px;color:var(--yellow);letter-spacing:2px}
+.tag{transform-origin:50% 100%}
+.tag::before{content:"";position:absolute;left:50%;top:calc(100% + 6px);width:2px;margin-left:-1px;height:max(0px,calc(var(--lead,0px) - 6px));background:rgba(255,255,255,.45);border-radius:1px}
+.tag:hover,.tag:focus-visible{z-index:999!important;opacity:1!important;border-color:var(--yellow);transform:translate(-50%,-100%) scale(1.08)}
+.tag.locked{opacity:.62;cursor:default;padding:6px 11px}
+.tag.locked b{font-size:13px}
+.tag.locked span{color:var(--muted);letter-spacing:.06em;font-size:11px;text-transform:uppercase;font-weight:800}
+.tag.hint{cursor:default;padding:5px 10px;background:rgba(242,183,5,.95);color:var(--yellow-ink);border-color:transparent}
+.tag.hint b{font-family:var(--body);font-weight:800;font-size:13px}
+.panel{position:absolute;left:max(16px,env(safe-area-inset-left,0px));bottom:calc(16px + env(safe-area-inset-bottom,0px));width:clamp(300px,34vw,400px);
+  background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:16px 18px;display:flex;flex-direction:column;gap:10px;box-shadow:0 18px 44px rgba(0,0,0,.4);backdrop-filter:blur(8px)}
+.ph{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:4px 10px}
+.step{font-size:12px;letter-spacing:.09em;text-transform:uppercase;font-weight:800;color:var(--yellow)}
+.link{color:var(--muted);background:none;border:0;padding:4px 0;font-weight:800;font-size:14px}
+.link:hover{color:var(--fg)}
+.panel h2{font-family:var(--display);font-weight:400;font-size:22px;line-height:1.15;margin:0;text-wrap:balance}
+.panel p{margin:0;color:var(--muted);max-width:60ch;font-size:15px}
+.ph-r{display:flex;gap:14px}
+.panel.mini .desc,.panel.mini .keys{display:none}
+.panel p b{color:var(--fg)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.btn{font-weight:800;color:var(--yellow-ink);background:var(--yellow);border:0;border-radius:12px;padding:11px 18px;min-height:48px;user-select:none;-webkit-user-select:none}
+.btn:hover{background:#FFC92E}
+.btn.ghost{background:var(--panel-2);color:var(--fg);border:1px solid var(--line)}
+.btn.ghost:hover{border-color:var(--yellow)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn.on{background:#FFD95C;box-shadow:inset 0 0 0 3px #fff6}
+.btn.ghost.on{background:rgba(242,183,5,.25);border-color:var(--yellow)}
+.hold{touch-action:none}
+.keys{font-size:13px;color:var(--muted)}
+.keys kbd{font-family:var(--mono);font-size:12px;background:var(--panel-2);border:1px solid var(--line);border-radius:6px;padding:1px 6px;color:var(--fg)}
+.slider{display:flex;flex-direction:column;gap:6px}
+.slider label{font-weight:800;font-size:14px;display:flex;justify-content:space-between}
+.slider input{width:100%;accent-color:var(--yellow);height:32px}
+.hud{position:absolute;right:max(16px,env(safe-area-inset-right,0px));top:calc(74px + env(safe-area-inset-top,0px));width:min(260px,calc(100% - 32px));display:flex;flex-direction:column;gap:10px}
+.meter{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:7px}
+.meter .lbl{display:flex;justify-content:space-between;gap:8px;font-size:13px;font-weight:800;color:var(--muted)}
+.meter .val{font-family:var(--mono);color:var(--fg);font-variant-numeric:tabular-nums}
+.bar{position:relative;height:10px;border-radius:6px;background:rgba(255,255,255,.08);overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;width:0;background:var(--yellow);border-radius:6px;transition:background .2s}
+.bar .band{position:absolute;top:0;bottom:0;background:rgba(82,201,142,.4)}
+.bar .needle{position:absolute;top:0;bottom:0;width:4px;margin-left:-2px;background:#fff;border-radius:2px}
+.toast{position:absolute;left:50%;top:calc(74px + env(safe-area-inset-top,0px));transform:translate(-50%,-8px);max-width:min(460px,calc(100% - 32px));background:var(--panel);border:1px solid var(--line);
+  border-radius:12px;padding:10px 16px;font-weight:800;text-align:center;opacity:0;transition:opacity .25s,transform .25s}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.bad{border-color:var(--bad);color:#FFD2CB}
+.toast.ok{border-color:var(--ok);color:#D3F5E3}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%,rgba(10,13,20,.35),rgba(10,13,20,.9));
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:24px;overflow:auto}
+.card{width:min(540px,100%);background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:clamp(20px,4vw,32px);display:flex;flex-direction:column;gap:14px;box-shadow:0 30px 70px rgba(0,0,0,.5)}
+.eyebrow{font-size:12px;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--yellow)}
+.card h1{font-family:var(--display);font-weight:400;font-size:clamp(36px,7vw,52px);line-height:1;margin:0}
+.card h2{font-family:var(--display);font-weight:400;font-size:28px;line-height:1.1;margin:0;text-wrap:balance}
+.card p{margin:0;color:var(--muted)}
+.card ul{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;color:var(--fg)}
+.card .stars{font-size:46px;letter-spacing:6px;line-height:1;color:var(--yellow)}
+.card .stars .dim{color:rgba(255,255,255,.15)}
+.loading{font-family:var(--mono);color:var(--muted);font-size:14px}
+@media (max-width:620px){
+  .panel{width:calc(100% - 32px)}
+  .meter.calm{display:none}
+  .panel .sec{max-height:96px;max-width:150px!important}
+  .panel .row.kinds{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}
+  .panel .row{gap:8px}
+  .panel .btn{padding:9px 12px;min-height:44px}
+  .brand{font-size:17px}
+  .panel{padding:13px 14px;gap:8px}
+  .panel h2{font-size:19px}
+  .panel p{font-size:14px}
+  .hud{top:calc(104px + env(safe-area-inset-top,0px));width:calc(100% - 32px);display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .meter{padding:6px 9px;gap:4px}
+  .meter .lbl{font-size:11px}
+  .tag.locked{display:none}
+  .tag{padding:6px 10px}
+  .tag b{font-size:13px}
+  .toast{top:calc(104px + env(safe-area-inset-top,0px))}
+  .btn{padding:10px 14px}
+}
+@media (min-width:621px) and (max-width:1000px){
+  .hud{width:min(440px,calc(100% - 32px));display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .meter{padding:6px 9px;gap:4px}
+  .meter .lbl{font-size:12px}
+}
+@media (max-height:700px){
+  .panel{padding:12px 14px;gap:8px}
+  .panel h2{font-size:19px}
+  .btn{min-height:44px;padding:9px 14px}
+}
+.opts-v{display:flex;flex-direction:column;gap:8px}
+.row.grits{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.row.grits .btn{padding:10px 4px;font-family:var(--mono)}
+.opts-v .btn{text-align:left;font-weight:700}
+.lines .btn{display:flex;align-items:center;gap:12px;padding:8px 12px;min-height:44px}
+.lines svg{flex:0 0 auto;color:var(--fg)}
+.btn.ghost.on{color:var(--fg)}
+@media (max-width:620px){
+  .lines{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+  .lines .btn{flex-direction:column;align-items:flex-start;gap:2px;font-size:12px;line-height:1.2;padding:6px 8px}
+  .lines svg{width:70px;height:18px}
+  .opts-v .btn{font-size:13px;padding:8px 10px}
+}
+@media (prefers-reduced-motion:reduce){.toast,.tag{transition:none}}
+</style>
+<style>body{margin:0}[hidden]{display:none!important}button{font:inherit}</style>
+</head>
+<body>
+
+<canvas id="gl" tabindex="0" aria-label="3D-сцена столярной мастерской"></canvas>
+<div class="ui">
+  <div class="top">
+    <div class="brand">
+      <small>Технология · 5 класс</small>3D-мастерская
+    </div>
+    <div class="chips">
+      <span class="chip pe" id="score">★ <b>0</b> / 9</span>
+      <button type="button" class="icon-btn pe" id="sound">Звук: вкл</button>
+    </div>
+  </div>
+  <div class="tags" id="tags"></div>
+  <div class="hud" id="hud"></div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <div class="panel pe" id="panel" hidden></div>
+  <div class="overlay pe" id="intro">
+    <div class="card">
+      <p class="eyebrow">Технология · 5 класс</p>
+      <h1>3D-мастерская</h1>
+      <p>Вечер, в мастерской горит свет. Работают шесть станций: лущильный станок, где из бревна получается шпон, выпиловочный столик с лобзиком, пресс, где из шпона склеивают фанеру, пилорама, шлифовка и чертёжный стол.</p>
+      <ul>
+        <li>Нажми на станок, и камера подлетит к нему.</li>
+        <li>Задание и кнопки появятся внизу, приборы справа.</li>
+        <li>За каждую станцию можно получить до трёх звёзд.</li>
+      </ul>
+      <p class="loading" id="loading">Загружаем мастерскую…</p>
+      <div class="row"><button type="button" class="btn" id="enter" disabled>Войти в мастерскую</button><a class="btn ghost" href="../" style="text-decoration:none;display:inline-flex;align-items:center">Квест с карточками</a></div>
+    </div>
+  </div>
+  <div class="overlay pe" id="result" hidden></div>
+</div>
+
+<script type="importmap">
+{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}
+</script>
+<script type="module">
+import * as THREE from 'three';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+
+const $ = s => document.querySelector(s);
+const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+const lerp = (a,b,t) => a + (b-a)*t;
+const ease = t => t<.5 ? 4*t*t*t : 1 - Math.pow(-2*t+2,3)/2;
+const rand = (a,b) => a + Math.random()*(b-a);
+const V = (x,y,z) => new THREE.Vector3(x,y,z);
+
+/* ================= storage ================= */
+const KEY = 'workshop3d-v1';
+let best = {};
+try { best = JSON.parse(localStorage.getItem(KEY) || '{}') || {}; } catch(e) { best = {}; }
+function saveBest(){ try { localStorage.setItem(KEY, JSON.stringify(best)); } catch(e) {} }
+const OPEN_IDS = ['lathe','jig','press','mill','sand','draw'];
+function totalStars(){ return OPEN_IDS.reduce((a,id) => a + (best[id]||0), 0); }
+function starsOf(m){ return m === 0 ? 3 : (m <= 2 ? 2 : 1); }
+
+/* ================= audio ================= */
+let actx = null, master = null, muted = false, NB = null;
+const loops = {};
+function initAudio(){
+  if (actx){ if (actx.state === 'suspended') actx.resume(); return; }
+  try {
+    actx = new (window.AudioContext || window.webkitAudioContext)();
+    master = actx.createGain(); master.gain.value = 0.55; master.connect(actx.destination);
+    NB = actx.createBuffer(1, actx.sampleRate, actx.sampleRate);
+    const d = NB.getChannelData(0); for (let i=0;i<d.length;i++) d[i] = Math.random()*2-1;
+    ['motor','cut','saw','steam'].forEach(k => loops[k] = makeLoop(k));
+  } catch(e) { actx = null; }
+}
+function burst({freq=1800,q=1.2,dur=.08,gain=.22,type='bandpass'}={}){
+  if (!actx || muted) return;
+  const s = actx.createBufferSource(); s.buffer = NB;
+  const f = actx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q;
+  const g = actx.createGain(); const t = actx.currentTime;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(gain,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  s.connect(f).connect(g).connect(master); s.start(t, Math.random()*0.5); s.stop(t+dur+0.05);
+}
+function tone(freq=660,dur=.15,gain=.12,type='sine'){
+  if (!actx || muted) return;
+  const o = actx.createOscillator(); o.type = type; o.frequency.value = freq;
+  const g = actx.createGain(); const t = actx.currentTime;
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(gain,t+0.01); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g).connect(master); o.start(t); o.stop(t+dur+0.05);
+}
+function chord(){ tone(523,.3,.1); setTimeout(()=>tone(659,.3,.1),90); setTimeout(()=>tone(784,.5,.1),180); }
+function thud(){ burst({freq:180,q:.7,dur:.18,gain:.5,type:'lowpass'}); tone(90,.12,.15,'triangle'); }
+function crack(){ burst({freq:3200,q:3,dur:.06,gain:.5}); setTimeout(()=>burst({freq:2200,q:2,dur:.12,gain:.3}),40); }
+function makeLoop(kind){
+  const g = actx.createGain(); g.gain.value = 0; g.connect(master);
+  const noise = (type, freq, q, to=g) => { const s = actx.createBufferSource(); s.buffer = NB; s.loop = true; const f = actx.createBiquadFilter(); f.type = type; f.frequency.value = freq; f.Q.value = q; s.connect(f).connect(to); s.start(Math.random()*.5); };
+  const osc = (type, freq, gain, to=g) => { const o = actx.createOscillator(); o.type = type; o.frequency.value = freq; const og = actx.createGain(); og.gain.value = gain; o.connect(og).connect(to); o.start(); return o; };
+  if (kind === 'motor'){            // electric motor: low hum with a whine and a slight wobble
+    const lp = actx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 900; lp.connect(g);
+    const a = osc('sawtooth', 100, .16, lp), b = osc('sine', 200, .3), c = osc('triangle', 600, .05);
+    const lfo = actx.createOscillator(); lfo.frequency.value = 5.5; const lg = actx.createGain(); lg.gain.value = 1.6; lfo.connect(lg); lg.connect(a.frequency); lg.connect(b.frequency); lfo.start();
+    noise('lowpass', 260, .7);
+  } else if (kind === 'cut'){       // knife shaving the log
+    noise('bandpass', 1100, .7);
+  } else if (kind === 'saw'){       // fretsaw rasp
+    noise('bandpass', 1900, 1.3); noise('highpass', 4200, .7);
+  } else {                          // steam
+    noise('highpass', 2600, .7);
+  }
+  return { set(v, tc=.12){ g.gain.setTargetAtTime(muted ? 0 : v, actx.currentTime, tc); } };
+}
+function loopSet(name, v, tc){ if (loops[name]) loops[name].set(v, tc); }
+function allLoopsOff(){ for (const k in loops) loops[k].set(0); }
+
+/* ================= renderer & scene ================= */
+const canvas = $('#gl');
+let renderer;
+try {
+  renderer = new THREE.WebGLRenderer({ canvas, antialias:true });
+} catch(e) {
+  $('#loading').textContent = 'Этот браузер не умеет показывать 3D. Открой страницу в Chrome, Safari или Firefox.';
+  throw e;
+}
+renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+renderer.setSize(innerWidth, innerHeight, false);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.05;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x141a27);
+scene.fog = new THREE.Fog(0x141a27, 10, 22);
+const pmrem = new THREE.PMREMGenerator(renderer);
+scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+
+const camera = new THREE.PerspectiveCamera(50, innerWidth/innerHeight, 0.01, 60);
+const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+function mat(color, rough=.7, metal=0, extra={}){
+  return new THREE.MeshStandardMaterial(Object.assign({ color, roughness:rough, metalness:metal, envMapIntensity:.4 }, extra));
+}
+
+/* ================= textures ================= */
+function canvasTex(w,h,draw,rep){
+  const c = document.createElement('canvas'); c.width = w; c.height = h;
+  const g = c.getContext('2d'); draw(g,w,h);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = maxAniso;
+  if (rep){ t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(rep[0], rep[1]); }
+  return t;
+}
+function grainLines(g,x,y,w,h,rgb,n,amp){
+  for (let i=0;i<n;i++){
+    const yy = y + Math.random()*h;
+    g.strokeStyle = `rgba(${rgb},${rand(.05,.22).toFixed(3)})`;
+    g.lineWidth = rand(.6,2.4);
+    g.beginPath();
+    const ph = rand(0,6.28), f = rand(.003,.012), a = rand(.5,amp);
+    for (let xx=x; xx<=x+w; xx+=6){
+      const v = yy + Math.sin(xx*f+ph)*a + Math.sin(xx*f*3.1+ph*2)*a*.25;
+      if (xx===x) g.moveTo(xx,v); else g.lineTo(xx,v);
+    }
+    g.stroke();
+  }
+}
+function drawBirch(g,w,h){
+  g.fillStyle = '#E4C590'; g.fillRect(0,0,w,h);
+  grainLines(g,0,0,w,h,'150,100,50',80,4);
+  for (let i=0;i<3;i++){ const x=rand(40,w-40), y=rand(40,h-40);
+    for (let r=2;r<14;r+=3){ g.strokeStyle='rgba(120,75,35,.25)'; g.lineWidth=1.2; g.beginPath(); g.ellipse(x,y,r*1.8,r*.7,0,0,7); g.stroke(); } }
+}
+const floorTex = canvasTex(1024,1024,(g,w,h)=>{
+  const rows=8, ph=h/rows, cols=['#7E5232','#8B5D37','#76492B','#94653B'];
+  for (let r=0;r<rows;r++){
+    const y=r*ph; let x=-rand(0,w*.5);
+    while (x<w){
+      const len=rand(w*.45,w*.9);
+      g.fillStyle=cols[(Math.random()*cols.length)|0]; g.fillRect(x,y,len,ph);
+      grainLines(g,Math.max(0,x),y,Math.min(len,w-Math.max(0,x)),ph,'50,26,10',16,3);
+      g.fillStyle='rgba(18,9,4,.6)'; g.fillRect(x+len-2,y,3,ph);
+      x+=len;
+    }
+    g.fillStyle='rgba(18,9,4,.65)'; g.fillRect(0,y,w,2);
+  }
+},[3,2.4]);
+const wallTex = canvasTex(512,512,(g,w,h)=>{
+  g.fillStyle='#2B3242'; g.fillRect(0,0,w,h);
+  for (let i=0;i<5000;i++){ g.fillStyle=`rgba(${Math.random()<.5?'255,255,255':'0,0,0'},${rand(.02,.06)})`; g.fillRect(rand(0,w),rand(0,h),rand(1,3),rand(1,3)); }
+},[6,3]);
+const birchTex = canvasTex(512,512,drawBirch,[1,1]);
+const ribbonTex = canvasTex(512,512,drawBirch,[1,1]);
+const endTex = canvasTex(512,512,(g,w,h)=>{
+  const c=w/2; const grd=g.createRadialGradient(c,c,10,c,c,c); grd.addColorStop(0,'#C99A5E'); grd.addColorStop(.7,'#DDB57C'); grd.addColorStop(1,'#B88A52');
+  g.fillStyle=grd; g.fillRect(0,0,w,h);
+  for (let r=6;r<c;r+=rand(7,13)){ g.strokeStyle=`rgba(120,72,30,${rand(.2,.45)})`; g.lineWidth=rand(1,2.5); g.beginPath(); g.ellipse(c+rand(-2,2),c+rand(-2,2),r,r*rand(.97,1.03),0,0,7); g.stroke(); }
+  g.fillStyle='#6B4423'; g.beginPath(); g.arc(c,c,5,0,7); g.fill();
+  g.strokeStyle='rgba(60,35,15,.5)'; g.lineWidth=2; for (let i=0;i<4;i++){ const a=rand(0,6.28); g.beginPath(); g.moveTo(c,c); g.lineTo(c+Math.cos(a)*rand(60,140), c+Math.sin(a)*rand(60,140)); g.stroke(); }
+});
+const barkTex = canvasTex(256,256,(g,w,h)=>{
+  g.fillStyle='#4A3322'; g.fillRect(0,0,w,h);
+  for (let i=0;i<60;i++){ g.strokeStyle=`rgba(20,12,6,${rand(.4,.8)})`; g.lineWidth=rand(1.5,4); g.beginPath(); let x=rand(0,w); g.moveTo(x,0); for (let y=0;y<=h;y+=16){ x+=rand(-6,6); g.lineTo(x,y);} g.stroke(); }
+  for (let i=0;i<300;i++){ g.fillStyle=`rgba(150,120,90,${rand(.08,.2)})`; g.fillRect(rand(0,w),rand(0,h),rand(2,6),rand(1,3)); }
+});
+const stripeTex = canvasTex(256,32,(g,w,h)=>{ g.fillStyle='#F2B705'; g.fillRect(0,0,w,h); g.fillStyle='#16181c'; for (let x=-h;x<w+h;x+=32){ g.beginPath(); g.moveTo(x,h); g.lineTo(x+16,h); g.lineTo(x+16+h,0); g.lineTo(x+h,0); g.fill(); } },[4,1]);
+const pegTex = canvasTex(512,256,(g,w,h)=>{ g.fillStyle='#A98457'; g.fillRect(0,0,w,h); grainLines(g,0,0,w,h,'90,60,30',30,2); g.fillStyle='rgba(30,18,8,.75)'; for (let x=12;x<w;x+=24) for (let y=12;y<h;y+=24){ g.beginPath(); g.arc(x,y,3,0,7); g.fill(); } });
+const tarpTex = canvasTex(256,256,(g,w,h)=>{ g.fillStyle='#4A5640'; g.fillRect(0,0,w,h);
+  for (let x=0;x<w;){ const fw=rand(14,34); const grd=g.createLinearGradient(x,0,x+fw,0); grd.addColorStop(0,'rgba(0,0,0,.22)'); grd.addColorStop(.45,'rgba(255,255,255,.07)'); grd.addColorStop(1,'rgba(0,0,0,.18)'); g.fillStyle=grd; g.fillRect(x,0,fw,h); x+=fw; }
+  for (let i=0;i<2600;i++){ g.fillStyle=`rgba(${Math.random()<.5?'255,255,255':'0,0,0'},${rand(.03,.08)})`; g.fillRect(rand(0,w),rand(0,h),1,1); } });
+const plyEdgeTex = canvasTex(64,64,(g,w,h)=>{ const n=5; for (let i=0;i<n;i++){ g.fillStyle=i%2?'#C9A068':'#EBD1A0'; g.fillRect(0,i*h/n,w,h/n); } g.fillStyle='rgba(80,50,20,.6)'; for (let i=1;i<n;i++) g.fillRect(0,i*h/n-1,w,2); });
+const steamTex = canvasTex(64,64,(g,w,h)=>{ const grd=g.createRadialGradient(32,32,0,32,32,32); grd.addColorStop(0,'rgba(255,255,255,.9)'); grd.addColorStop(.5,'rgba(255,255,255,.35)'); grd.addColorStop(1,'rgba(255,255,255,0)'); g.fillStyle=grd; g.fillRect(0,0,w,h); });
+const crackTex = canvasTex(256,256,(g,w,h)=>{ g.clearRect(0,0,w,h); g.strokeStyle='rgba(70,35,15,.95)'; for (let i=0;i<14;i++){ g.lineWidth=rand(1.5,3); g.beginPath(); let x=rand(0,w), y=rand(0,h); g.moveTo(x,y); for (let k=0;k<6;k++){ x+=rand(-30,30); y+=rand(-8,8); g.lineTo(x,y);} g.stroke(); } },[1,1]);
+crackTex.colorSpace = THREE.SRGBColorSpace;
+
+/* ================= room ================= */
+const shadowy = m => { m.castShadow = true; m.receiveShadow = true; return m; };
+function rbox(w,h,d,m,r=.03){ return shadowy(new THREE.Mesh(new RoundedBoxGeometry(w,h,d,3,r), m)); }
+function box(w,h,d,m){ return shadowy(new THREE.Mesh(new THREE.BoxGeometry(w,h,d), m)); }
+
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(16,12).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ map:floorTex, roughness:.8, envMapIntensity:.3 }));
+floor.receiveShadow = true; scene.add(floor);
+const wallMat = new THREE.MeshStandardMaterial({ map:wallTex, roughness:.95, envMapIntensity:.25 });
+const backWall = new THREE.Mesh(new THREE.PlaneGeometry(16,6), wallMat); backWall.position.set(0,3,-4); backWall.receiveShadow = true; scene.add(backWall);
+const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(12,6), wallMat); leftWall.rotation.y = Math.PI/2; leftWall.position.set(-6.5,3,2); leftWall.receiveShadow = true; scene.add(leftWall);
+const rightWall = leftWall.clone(); rightWall.rotation.y = -Math.PI/2; rightWall.position.x = 6.5; scene.add(rightWall);
+const wainMat = mat('#1E2431',.9);
+const wain = box(16,1.0,.04,wainMat); wain.position.set(0,.5,-3.98); scene.add(wain);
+const wainL = box(.04,1.0,12,wainMat); wainL.position.set(-6.48,.5,2); scene.add(wainL);
+const wainR = wainL.clone(); wainR.position.x = 6.48; scene.add(wainR);
+
+// window on the left wall
+const winGlass = new THREE.Mesh(new THREE.PlaneGeometry(2.4,1.7), new THREE.MeshStandardMaterial({ color:'#0d1626', emissive:'#9DBDF0', emissiveIntensity:.9, roughness:.2 }));
+winGlass.rotation.y = Math.PI/2; winGlass.position.set(-6.47,2.4,-.6); scene.add(winGlass);
+const frameMat = mat('#1B2030',.6);
+[[0,0,2.5,.08],[0,.85,2.5,.08],[0,-.85,2.5,.08]].forEach(([y,yy,w,t])=>{ const b=box(.08,t,w,frameMat); b.position.set(-6.44,2.4+yy,-.6); scene.add(b); });
+[-1.2,0,1.2].forEach(z=>{ const b=box(.08,1.75,.08,frameMat); b.position.set(-6.44,2.4,-.6+z); scene.add(b); });
+
+// lights
+scene.add(new THREE.HemisphereLight(0x8494b8, 0x2a1d12, .55));
+const sun = new THREE.DirectionalLight(0xc6d8ff, 1.5);
+sun.position.set(-6,6.2,1.5); sun.target.position.set(-.5,0,-1);
+sun.castShadow = true; sun.shadow.mapSize.set(2048,2048);
+Object.assign(sun.shadow.camera, { left:-7, right:7, top:6, bottom:-6, near:.5, far:22 });
+sun.shadow.bias = -0.0004; sun.shadow.normalBias = .02;
+scene.add(sun, sun.target);
+function lamp(x,z,y=2.55,intensity=9){
+  const g = new THREE.Group();
+  const shade = new THREE.Mesh(new THREE.ConeGeometry(.27,.24,32,1,true), mat('#2F4A42',.45,.55,{ side:THREE.DoubleSide }));
+  shade.position.y = .12;
+  const bulb = new THREE.Mesh(new THREE.SphereGeometry(.07,16,12), new THREE.MeshStandardMaterial({ color:'#fff3d0', emissive:'#ffcf7a', emissiveIntensity:3 }));
+  bulb.position.y = .02;
+  const cord = new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,3,6), mat('#0d0d0d',.8));
+  cord.position.y = 1.7;
+  g.add(shade,bulb,cord); g.position.set(x,y,z); scene.add(g);
+  const pl = new THREE.PointLight(0xffc684, intensity, 0, 2); pl.position.set(x,y-.06,z); scene.add(pl);
+  return pl;
+}
+lamp(-2.7,-.5); lamp(.9,-.25,2.8,7); lamp(3.2,-1.6,2.6,5); lamp(-4.6,-.5,2.6,5);
+
+// pegboard with tools
+const peg = box(3.4,1.3,.03, new THREE.MeshStandardMaterial({ map:pegTex, roughness:.85, envMapIntensity:.3 }));
+peg.position.set(.4,1.95,-3.95); scene.add(peg);
+const steel = mat('#A3ACB6',.32,.85), steelDark = mat('#4A505A',.4,.8), oak = mat('#8A5A33',.6), handleMat = mat('#B5652E',.55), redPaint = mat('#B23A2A',.5,.2);
+function addTool(meshes, x, y, rz=0){ const g = new THREE.Group(); meshes.forEach(m=>g.add(m)); g.position.set(x,y,-3.91); g.rotation.z = rz; scene.add(g); }
+{ // hammer
+  const h = box(.035,.36,.03,handleMat); const head = box(.14,.05,.05,steelDark); head.position.y = .18; addTool([h,head], -.9, 1.95, .15);
+}
+{ // hand saw
+  const sh = new THREE.Shape(); sh.moveTo(0,0); sh.lineTo(.62,.03); sh.lineTo(.62,.09); sh.lineTo(0,.16); sh.lineTo(0,0);
+  const blade = new THREE.Mesh(new THREE.ExtrudeGeometry(sh,{ depth:.004, bevelEnabled:false }), steel); blade.castShadow = true;
+  const handle = box(.13,.16,.03,handleMat); handle.position.set(-.05,.08,0);
+  addTool([blade,handle], -.45, 2.25, -.05);
+}
+{ // square
+  const a = box(.32,.035,.012,steelDark); const b = box(.035,.2,.02,oak); b.position.set(-.16,-.08,0);
+  addTool([a,b], .55, 2.35, 0);
+}
+{ // chisels
+  for (let i=0;i<4;i++){ const hnd = new THREE.Mesh(new THREE.CylinderGeometry(.016,.018,.13,12), handleMat); hnd.castShadow = true; const bl = box(.012+i*.006,.12,.004,steel); bl.position.y = -.12; addTool([hnd,bl], .95+i*.11, 1.95, 0); }
+}
+{ // clamp (C)
+  const c = new THREE.Mesh(new THREE.TorusGeometry(.12,.018,10,24,Math.PI*1.3), redPaint); c.castShadow = true; c.rotation.z = Math.PI*.35;
+  addTool([c], 1.75, 1.95, 0);
+}
+{ // fretsaw on the board (spare)
+  const pts = [V(0,.2,0),V(.02,.22,0),V(.26,.22,0),V(.28,.2,0),V(.28,-.02,0),V(.26,-.04,0),V(.02,-.04,0),V(0,-.02,0)];
+  const t = new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts,false,'catmullrom',.1),60,.006,8,false), steelDark);
+  addTool([t], -1.3, 1.6, 0);
+}
+
+// lumber stack (decor)
+for (let row=0; row<5; row++) for (let i=0;i<4;i++){
+  const p = box(1.8,.05,.16, mat(row%2?'#B88A55':'#C79A62',.75)); p.position.set(5.2, .03+row*.055, 1.4 - i*.2 - (row%2)*.05); scene.add(p);
+}
+
+/* ================= locked stations ================= */
+const tarpMat = new THREE.MeshStandardMaterial({ map:tarpTex, roughness:.95, envMapIntensity:.25 });
+const STATIONS = [
+  { id:'lathe', name:'Лущильный станок', anchor:V(-2.6,2.0,-.6) },
+  { id:'jig', name:'Выпиловочный столик', anchor:V(.9,1.45,-.75) },
+  { id:'press', name:'Пресс для фанеры', anchor:V(3.2,2.12,-1.5) },
+  { id:'mill', name:'Пилорама', anchor:V(-.9,2.08,-2.95) },
+  { id:'sand', name:'Шлифовка', anchor:V(4.6,1.25,-2.6) },
+  { id:'draw', name:'Чертёжный стол', anchor:V(2.2,1.38,-3.1) },
+];
+STATIONS.filter(s=>s.locked).forEach(s=>{
+  const [w,h,d] = s.size;
+  const m = rbox(w,h,d,tarpMat,.12); m.position.set(s.pos.x, h/2, s.pos.z); m.rotation.y = rand(-.08,.08); scene.add(m);
+  const rope = new THREE.Mesh(new THREE.TorusGeometry(Math.max(w,d)*.56,.012,6,40), mat('#C9B48A',.9)); rope.rotation.x = Math.PI/2; rope.scale.set(w/Math.max(w,d), d/Math.max(w,d), 1); rope.position.set(s.pos.x, h*.35, s.pos.z); scene.add(rope);
+  s.anchor = V(s.pos.x, h + .32, s.pos.z);
+});
+
+/* ================= lathe ================= */
+const LATHE = V(-2.6,0,-.6), AX = 1.15;
+const lathe = new THREE.Group(); lathe.position.copy(LATHE); scene.add(lathe);
+const green = mat('#3E5F55',.45,.35), greenDark = mat('#2A4139',.5,.35), rubber = mat('#22252B',.85,.1), yellowM = mat('#F2B705',.5,.1), brass = mat('#C9A24A',.35,.9);
+{
+  const base = rbox(1.9,.82,.85,green,.05); base.position.y = .41; lathe.add(base);
+  const plinth = rbox(2.0,.08,.95,greenDark,.02); plinth.position.y = .04; lathe.add(plinth);
+  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(1.6,.07), new THREE.MeshStandardMaterial({ map:stripeTex, roughness:.6 })); stripe.position.set(0,.72,.427); lathe.add(stripe);
+  for (const s of [-1,1]){
+    const hs = rbox(.34,.56,.58,green,.04); hs.position.set(s*.8,.82+.28,0); lathe.add(hs);
+    const sp = new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.12,24), steel); sp.rotation.z = Math.PI/2; sp.position.set(s*.6,AX,0); shadowy(sp); lathe.add(sp);
+    const ring = new THREE.Mesh(new THREE.CylinderGeometry(.09,.09,.03,32), steelDark); ring.rotation.z = Math.PI/2; ring.position.set(s*.645,AX,0); lathe.add(ring);
+  }
+  const ctrl = rbox(.16,.2,.06,greenDark,.02); ctrl.position.set(.8,1.12,.31); lathe.add(ctrl);
+  const bG = new THREE.Mesh(new THREE.CylinderGeometry(.022,.022,.02,16), mat('#2FA35F',.4)); bG.rotation.x = Math.PI/2; bG.position.set(.77,1.16,.345); lathe.add(bG);
+  const bR = bG.clone(); bR.material = mat('#C8382A',.4); bR.position.set(.83,1.08,.345); lathe.add(bR);
+  const plate = new THREE.Mesh(new THREE.PlaneGeometry(.3,.09), mat('#C9A24A',.35,.9)); plate.position.set(-.8,1.25,.292); lathe.add(plate);
+}
+// carriage with knife (its edge sits at local z=0)
+const carriage = new THREE.Group(); lathe.add(carriage);
+{
+  const body = rbox(1.25,.12,.16,greenDark,.02); body.position.set(0,-.075,.1); carriage.add(body);
+  const knife = box(1.15,.012,.085,steel); knife.position.set(0,-.008,.0425); carriage.add(knife);
+  carriage.position.set(0,AX,.2);
+}
+// conveyor (top at AX), guillotine, mark, pallet
+const ZG = .78, ZM = ZG + .5, ZEND = 1.45;
+{
+  const conv = rbox(1.25,.05,1.02,rubber,.01); conv.position.set(0,AX-.026,.95); lathe.add(conv);
+  for (const z of [.55,1.35]) for (const x of [-.55,.55]){ const l = box(.05,AX-.05,.05,steelDark); l.position.set(x,(AX-.05)/2,z); lathe.add(l); }
+  for (const x of [-.66,.66]){ const p = box(.05,.45,.05,steelDark); p.position.set(x,AX+.2,ZG); lathe.add(p); }
+  const top = box(1.37,.05,.06,yellowM); top.position.set(0,AX+.43,ZG); lathe.add(top);
+  const mark = new THREE.Mesh(new THREE.PlaneGeometry(1.2,.012).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ color:'#F2B705', emissive:'#F2B705', emissiveIntensity:.6 }));
+  mark.position.set(0,AX+.002,ZM); lathe.add(mark);
+  const pallet = box(1.15,.12,1.1, mat('#9C7448',.8)); pallet.position.set(1.55,.06,1.05); lathe.add(pallet);
+}
+const gBlade = box(1.22,.03,.05,steel); gBlade.position.set(0,AX+.32,ZG); lathe.add(gBlade);
+// ribbon (veneer coming off the log)
+const ribbonGeo = new THREE.PlaneGeometry(1.05,1).rotateX(-Math.PI/2).translate(0,0,.5);
+const ribbonMat = new THREE.MeshStandardMaterial({ map:ribbonTex, roughness:.7, envMapIntensity:.35, side:THREE.DoubleSide });
+const ribbon = new THREE.Mesh(ribbonGeo, ribbonMat); ribbon.position.y = AX+.004; ribbon.visible = false; ribbon.receiveShadow = true; lathe.add(ribbon);
+const ribbonCrack = new THREE.Mesh(ribbonGeo, new THREE.MeshBasicMaterial({ map:crackTex, transparent:true, opacity:0, depthWrite:false }));
+ribbonCrack.position.y = .001; ribbon.add(ribbonCrack);
+const sheetsGroup = new THREE.Group(); lathe.add(sheetsGroup);
+
+// log assembly (world space so it can travel to the steam bath)
+const LOG_HOME = V(LATHE.x, AX, LATHE.z);
+const logAsm = new THREE.Group(); logAsm.position.copy(LOG_HOME); scene.add(logAsm);
+const woodSide = new THREE.MeshStandardMaterial({ map:birchTex, color:'#E9CFA0', roughness:.7, envMapIntensity:.35 });
+const endMat = new THREE.MeshStandardMaterial({ map:endTex, roughness:.7, envMapIntensity:.35 });
+const logGeo = new THREE.CylinderGeometry(1,1,1.1,56,1); logGeo.rotateZ(Math.PI/2);
+const logCore = shadowy(new THREE.Mesh(logGeo, [woodSide,endMat,endMat])); logAsm.add(logCore);
+let logR = .2;
+function setLogR(r){ logR = r; logCore.scale.set(1,r,r); }
+setLogR(.2);
+const BR = 12, BS = 16, BN = BR*BS;
+const bark = new THREE.InstancedMesh(new THREE.BoxGeometry(.098,.03,.09), new THREE.MeshStandardMaterial({ map:barkTex, roughness:.95, envMapIntensity:.25 }), BN);
+bark.castShadow = true; logAsm.add(bark);
+const barkInfo = []; let barkAlive = BN;
+function resetBark(){
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), e = new THREE.Euler(), p = new THREE.Vector3(), s = new THREE.Vector3();
+  let i = 0; barkInfo.length = 0;
+  for (let rI=0;rI<BR;rI++) for (let sI=0;sI<BS;sI++){
+    const x = -.55 + .0458 + rI*(1.1/BR);
+    const a = (sI + (rI%2)*.5)/BS*Math.PI*2;
+    const rad = .214 + rand(-.004,.006);
+    p.set(x, Math.cos(a)*rad, Math.sin(a)*rad); e.set(a+rand(-.05,.05),0,0); q.setFromEuler(e);
+    s.set(rand(.96,1.08), rand(.8,1.3), rand(1.02,1.15)); m.compose(p,q,s);
+    bark.setMatrixAt(i,m); barkInfo[i] = { rI, sI, alive:true, x, a }; i++;
+  }
+  bark.instanceMatrix.needsUpdate = true; bark.visible = true; barkAlive = BN;
+  bark.boundingSphere = null; bark.computeBoundingSphere && bark.computeBoundingSphere();
+}
+resetBark();
+const zeroM = new THREE.Matrix4().makeScale(0,0,0);
+function stripBark(id){
+  const c = barkInfo[id]; if (!c || !c.alive) return 0;
+  let n = 0;
+  barkInfo.forEach((b,j)=>{
+    if (!b.alive) return;
+    const dr = Math.abs(b.rI - c.rI); let ds = Math.abs(b.sI - c.sI); ds = Math.min(ds, BS - ds);
+    if (dr <= 1 && ds <= 1){
+      b.alive = false; bark.setMatrixAt(j, zeroM); n++; barkAlive--;
+      const wp = V(b.x, Math.cos(b.a)*.22, Math.sin(b.a)*.22).applyMatrix4(logAsm.matrixWorld);
+      spawnChip(wp, '#4A3322', .05);
+    }
+  });
+  bark.instanceMatrix.needsUpdate = true;
+  if (n) burst({ freq:900, q:.8, dur:.09, gain:.25 });
+  return n;
+}
+
+// steam bath
+const TANK = V(-4.65,0,-.6);
+{
+  const tg = new THREE.Group(); tg.position.copy(TANK); scene.add(tg);
+  const bottom = box(1.4,.06,.66,steelDark); bottom.position.y = .03; tg.add(bottom);
+  for (const z of [-.31,.31]){ const w = rbox(1.4,.62,.04,steelDark,.01); w.position.set(0,.34,z); tg.add(w); }
+  for (const x of [-.68,.68]){ const w = rbox(.04,.62,.66,steelDark,.01); w.position.set(x,.34,0); tg.add(w); }
+  const rim = new THREE.Mesh(new THREE.PlaneGeometry(1.2,.06), new THREE.MeshStandardMaterial({ map:stripeTex, roughness:.6 })); rim.position.set(0,.58,.332); tg.add(rim);
+  const water = new THREE.Mesh(new THREE.PlaneGeometry(1.32,.58).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ color:'#1C4A63', roughness:.12, metalness:.1, transparent:true, opacity:.88, envMapIntensity:.9 }));
+  water.position.y = .5; tg.add(water);
+  const pipe = new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,1.2,12), brass); pipe.position.set(-.75,.62,0); pipe.rotation.x = Math.PI/2; shadowy(pipe); tg.add(pipe);
+  const valve = new THREE.Mesh(new THREE.TorusGeometry(.07,.012,8,20), mat('#C8382A',.4)); valve.position.set(-.75,.75,.25); valve.rotation.y = Math.PI/2; tg.add(valve);
+}
+const steamPool = [];
+for (let i=0;i<40;i++){ const s = new THREE.Sprite(new THREE.SpriteMaterial({ map:steamTex, transparent:true, depthWrite:false, opacity:0 })); s.visible = false; scene.add(s); steamPool.push({ s, life:0, dur:1, alive:false, vx:0 }); }
+function spawnSteam(){
+  const p = steamPool.find(p=>!p.alive); if (!p) return;
+  p.alive = true; p.life = 0; p.dur = rand(1.4,2.4); p.vx = rand(-.05,.05);
+  p.s.position.set(TANK.x + rand(-.55,.55), .62, TANK.z + rand(-.22,.22)); p.s.visible = true;
+}
+
+// chips (bark flakes, veneer bits)
+const chipGeo = new THREE.PlaneGeometry(1,1);
+const chipPool = [];
+for (let i=0;i<60;i++){ const m = new THREE.Mesh(chipGeo, new THREE.MeshStandardMaterial({ color:'#4A3322', roughness:.9, side:THREE.DoubleSide })); m.visible = false; scene.add(m); chipPool.push({ m, v:V(0,0,0), w:V(0,0,0), life:0, alive:false }); }
+function spawnChip(pos, color, size){
+  const c = chipPool.find(c=>!c.alive); if (!c) return;
+  c.alive = true; c.life = 0; c.m.visible = true; c.m.position.copy(pos); c.m.material.color.set(color);
+  c.m.scale.set(size*rand(.6,1.2), size*rand(.4,.9), 1);
+  c.v.set(rand(-.6,.6), rand(.4,1.2), rand(.2,.9)); c.w.set(rand(-8,8),rand(-8,8),rand(-8,8));
+}
+
+/* ================= jig bench & fretsaw ================= */
+const O = V(.9,.897,-.165); // blade point on the table top
+{
+  const top = rbox(1.6,.07,.8, new THREE.MeshStandardMaterial({ map:canvasTex(512,256,(g,w,h)=>{ g.fillStyle='#9A6A3E'; g.fillRect(0,0,w,h); grainLines(g,0,0,w,h,'60,32,12',50,3); }), roughness:.65, envMapIntensity:.35 }),.015);
+  top.position.set(.9,.84,-.8); scene.add(top);
+  for (const x of [.18,1.62]) for (const z of [-1.12,-.48]){ const l = box(.07,.8,.07,oak); l.position.set(x,.4,z); scene.add(l); }
+  const shelf = box(1.45,.03,.6,oak); shelf.position.set(.9,.2,-.8); scene.add(shelf);
+  // V-board (выпиловочный столик)
+  const sh = new THREE.Shape();
+  sh.moveTo(-.11,-.15); sh.lineTo(.11,-.15); sh.lineTo(.11,.30); sh.lineTo(.035,.30); sh.lineTo(0,.215); sh.lineTo(-.035,.30); sh.lineTo(-.11,.30); sh.lineTo(-.11,-.15);
+  const vg = new THREE.ExtrudeGeometry(sh,{ depth:.022, bevelEnabled:true, bevelSize:.002, bevelThickness:.002, bevelSegments:1 }); vg.rotateX(Math.PI/2);
+  const vb = shadowy(new THREE.Mesh(vg, mat('#C49561',.6))); vb.position.set(.9,.897,-.4); scene.add(vb);
+  // G-clamp holding it
+  const cl = new THREE.Mesh(new THREE.TorusGeometry(.06,.01,8,20,Math.PI*1.4), redPaint); cl.rotation.set(0,Math.PI/2,Math.PI*.8); cl.position.set(.97,.86,-.52); shadowy(cl); scene.add(cl);
+  // spare plywood sheets on bench
+  const sp = box(.32,.012,.24, mat('#E2C38F',.7)); sp.position.set(1.4,.882,-.95); sp.rotation.y = .2; scene.add(sp);
+}
+const lobz = new THREE.Group(); lobz.position.copy(O); scene.add(lobz);
+const jigLight = new THREE.PointLight(0xfff1d6, 0, 0, 2); jigLight.position.set(O.x+.55, O.y+.55, O.z+.45); scene.add(jigLight);
+const bladeMat = mat('#C7CED6',.25,.9);
+const blade = new THREE.Mesh(new THREE.BoxGeometry(.0008,.215,.0018), bladeMat); blade.position.y = .02; lobz.add(blade);
+{
+  const pts = [V(0,.13,0),V(0,.15,.03),V(0,.152,.26),V(0,.125,.3),V(0,-.075,.3),V(0,-.1,.27),V(0,-.102,.03),V(0,-.09,0)];
+  const frame = shadowy(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts,false,'catmullrom',.15),90,.0045,10,false), mat('#2E3646',.35,.8)));
+  frame.material = mat('#D23C27',.32,.25); lobz.add(frame);
+  for (const y of [.13,-.09]){ const c = box(.014,.016,.014,brass); c.position.y = y; lobz.add(c); }
+  const handle = new THREE.Mesh(new THREE.CylinderGeometry(.013,.015,.11,16), handleMat); handle.position.y = -.155; shadowy(handle); lobz.add(handle);
+  const fer = new THREE.Mesh(new THREE.CylinderGeometry(.015,.015,.012,16), brass); fer.position.y = -.1; lobz.add(fer);
+}
+function teethGeo(out, down){
+  const side = out ? -1 : 1, e = .0009*side, hgt = .0058*side, step = .0085, pos = [];
+  for (let y=-.075; y<.115; y+=step){
+    pos.push(0,y,e, 0,y-step,e);
+    if (down) pos.push(0,y-step,e+hgt); else pos.push(0,y,e+hgt);
+  }
+  const g = new THREE.BufferGeometry(); g.setAttribute('position', new THREE.Float32BufferAttribute(pos,3)); g.computeVertexNormals(); return g;
+}
+const teethGeos = {}; [[0,0],[0,1],[1,0],[1,1]].forEach(([o,d])=> teethGeos[`${o}${d}`] = teethGeo(!!o,!!d));
+const teeth = new THREE.Mesh(teethGeos['00'], new THREE.MeshStandardMaterial({ color:'#C7CED6', roughness:.25, metalness:.9, side:THREE.DoubleSide, envMapIntensity:.6 }));
+lobz.add(teeth);
+const bladeBits = [0,1].map(()=>{ const m = new THREE.Mesh(new THREE.BoxGeometry(.0012,.1,.002), bladeMat); m.visible = false; scene.add(m); return { m, v:V(0,0,0), w:0 }; });
+
+// workpiece
+const pieceRot = new THREE.Group(); pieceRot.position.copy(O); scene.add(pieceRot);
+const pieceInner = new THREE.Group(); pieceRot.add(pieceInner);
+const pc = document.createElement('canvas'); pc.width = pc.height = 1024; const pg = pc.getContext('2d');
+const pieceTex = new THREE.CanvasTexture(pc); pieceTex.colorSpace = THREE.SRGBColorSpace; pieceTex.anisotropy = maxAniso;
+const PX = 1024/200;
+const plyEdge = new THREE.MeshStandardMaterial({ map:plyEdgeTex, roughness:.8 });
+const plyFace = mat('#E2C38F',.75);
+const pieceBox = shadowy(new THREE.Mesh(new THREE.BoxGeometry(.2,.004,.2), [plyEdge,plyEdge,plyFace,plyFace,plyEdge,plyEdge])); pieceBox.position.y = .002;
+const pieceTop = new THREE.Mesh(new THREE.PlaneGeometry(.2,.2).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ map:pieceTex, roughness:.75, envMapIntensity:.35 }));
+pieceTop.position.y = .0042; pieceTop.receiveShadow = true;
+pieceInner.add(pieceBox, pieceTop);
+let heartMesh = null;
+
+// heart contour (mm, local piece coords: x right, y forward)
+const HEART = [];
+{ const K = 3.3; for (let i=0;i<=360;i++){ const t = Math.PI + i/360*Math.PI*2; const x = 16*Math.pow(Math.sin(t),3), y = 13*Math.cos(t) - 5*Math.cos(2*t) - 2*Math.cos(3*t) - Math.cos(4*t); HEART.push([x*K, y*K + 5]); } }
+const TIP_Y = HEART[0][1];
+const LEAD = []; for (let y=-100; y<TIP_Y; y+=2) LEAD.push([0,y]);
+const PATH = LEAD.concat(HEART);
+const CONTOUR_START = LEAD.length;
+const toC = ([x,y]) => [512 + x*PX, 512 - y*PX];
+
+// sawdust
+const DUSTN = 140;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUSTN*3), dustVel = new Float32Array(DUSTN*3), dustLife = new Float32Array(DUSTN);
+for (let i=0;i<DUSTN;i++){ dustPos[i*3+1] = -10; }
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos,3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({ color:'#F1D9A8', size:.0028, sizeAttenuation:true }));
+dust.frustumCulled = false; scene.add(dust);
+let dustI = 0;
+function spawnDust(n){
+  for (let k=0;k<n;k++){
+    const i = dustI++ % DUSTN;
+    dustPos[i*3] = O.x + rand(-.002,.002); dustPos[i*3+1] = O.y + .005; dustPos[i*3+2] = O.z + rand(-.002,.002);
+    dustVel[i*3] = rand(-.12,.12); dustVel[i*3+1] = rand(.02,.15); dustVel[i*3+2] = rand(-.12,.12); dustLife[i] = rand(.6,1.2);
+  }
+}
+
+
+/* ================= plywood press ================= */
+const PR = V(3.2,0,-1.5), PLAT = .81, TOP_OPEN = 1.36, SH = .012;
+const STACK = V(2.2,0,-1.45);
+const pressGrp = new THREE.Group(); scene.add(pressGrp);
+const pressPaint = mat('#2F5B8A',.45,.35), pressDark = mat('#1E3550',.5,.35);
+{
+  const body = rbox(1.1,.72,.85,pressPaint,.04); body.position.set(PR.x,.36,PR.z); pressGrp.add(body);
+  const plinth = rbox(1.2,.06,.95,pressDark,.02); plinth.position.set(PR.x,.03,PR.z); pressGrp.add(plinth);
+  const bottom = box(1.0,.09,.8,steelDark); bottom.position.set(PR.x,PLAT-.045,PR.z); pressGrp.add(bottom);
+  for (const sx of [-1,1]) for (const sz of [-1,1]){ const c = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.04,.04,1.1,20), steel)); c.position.set(PR.x+sx*.5,1.27,PR.z+sz*.37); pressGrp.add(c); }
+  const head = rbox(1.18,.2,.92,pressPaint,.03); head.position.set(PR.x,1.82,PR.z); pressGrp.add(head);
+  const cyl = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.11,.11,.24,24), pressDark)); cyl.position.set(PR.x,1.6,PR.z); pressGrp.add(cyl);
+  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(.9,.06), new THREE.MeshStandardMaterial({ map:stripeTex, roughness:.6 })); stripe.position.set(PR.x,.66,PR.z+.428); pressGrp.add(stripe);
+  const ctrl = rbox(.24,.16,.05,pressDark,.015); ctrl.position.set(PR.x+.3,.42,PR.z+.44); pressGrp.add(ctrl);
+  const gauge = new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.01,24), mat('#F3EEE3',.4)); gauge.rotation.x = Math.PI/2; gauge.position.set(PR.x+.25,.42,PR.z+.47); pressGrp.add(gauge);
+  // pallet with a stack of veneer from the peeling machine
+  const pal = box(.85,.12,.65, mat('#9C7448',.8)); pal.position.set(STACK.x,.06,STACK.z); scene.add(pal);
+}
+const heatLamp = new THREE.Mesh(new THREE.SphereGeometry(.018,12,8), new THREE.MeshStandardMaterial({ color:'#3a1410', emissive:'#ff3b1f', emissiveIntensity:0 }));
+heatLamp.position.set(PR.x+.37,.42,PR.z+.47); pressGrp.add(heatLamp);
+const pressRod = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,1,16), steel)); pressGrp.add(pressRod);
+const heatMat = new THREE.MeshStandardMaterial({ color:'#6E7680', roughness:.4, metalness:.7, emissive:'#ff3a10', emissiveIntensity:0, envMapIntensity:.4 });
+const topPlaten = box(1.0,.08,.8,heatMat); pressGrp.add(topPlaten);
+function setTopY(y){ topPlaten.position.set(PR.x, y + .04, PR.z); const len = Math.max(.02, 1.48 - (y + .08)); pressRod.scale.y = len; pressRod.position.set(PR.x, y + .08 + len/2, PR.z); }
+setTopY(TOP_OPEN);
+// veneer sheet materials: the top face shows the grain direction, the edges show long grain (light) or end grain (dark)
+const veneerTex = canvasTex(1024,1024,(g,w,h)=>{
+  g.fillStyle = '#EDCF98'; g.fillRect(0,0,w,h);
+  grainLines(g,0,0,w,h,'150,100,50',140,5);
+  for (let i=0;i<34;i++){ const y = rand(0,h), ph = rand(0,6.28), f = rand(.003,.008), a = rand(2,7);
+    g.strokeStyle = `rgba(112,62,22,${rand(.45,.75).toFixed(2)})`; g.lineWidth = rand(2.5,5.5); g.beginPath();
+    for (let x=0;x<=w;x+=8){ const v = y + Math.sin(x*f+ph)*a; x ? g.lineTo(x,v) : g.moveTo(x,v); } g.stroke(); }
+  // chalk arrow along the grain
+  g.strokeStyle = 'rgba(255,255,255,.85)'; g.fillStyle = 'rgba(255,255,255,.85)'; g.lineWidth = 26; g.lineCap = 'round';
+  g.beginPath(); g.moveTo(w*.2,h/2); g.lineTo(w*.8,h/2); g.stroke();
+  for (const [x,s] of [[w*.1,1],[w*.9,-1]]){ g.beginPath(); g.moveTo(x,h/2); g.lineTo(x+s*130,h/2-80); g.lineTo(x+s*130,h/2+80); g.closePath(); g.fill(); }
+  g.font = '800 84px Nunito, Arial, sans-serif'; g.textAlign = 'center'; g.fillText('волокна', w/2, h/2 - 48);
+});
+const birchV = veneerTex.clone(); birchV.center.set(.5,.5); birchV.rotation = Math.PI/2; birchV.needsUpdate = true;
+const endGrainTex = canvasTex(128,32,(g,w,h)=>{ g.fillStyle='#A8763F'; g.fillRect(0,0,w,h); for (let i=0;i<160;i++){ g.fillStyle=`rgba(70,38,14,${rand(.35,.7)})`; g.beginPath(); g.arc(rand(0,w),rand(0,h),rand(.6,1.8),0,7); g.fill(); } },[5,1]);
+const vMat = {
+  h: new THREE.MeshStandardMaterial({ map:veneerTex, roughness:.7, envMapIntensity:.35 }),
+  v: new THREE.MeshStandardMaterial({ map:birchV, roughness:.7, envMapIntensity:.35 }),
+  long: mat('#EAD3A4',.75),
+  end: new THREE.MeshStandardMaterial({ map:endGrainTex, roughness:.85, envMapIntensity:.3 }),
+};
+function sheetMats(dir){ return dir === 'h' ? [vMat.end,vMat.end,vMat.h,vMat.h,vMat.long,vMat.long] : [vMat.long,vMat.long,vMat.v,vMat.v,vMat.end,vMat.end]; }
+for (let i=0;i<10;i++){ const m = shadowy(new THREE.Mesh(new THREE.BoxGeometry(.78,SH,.58), sheetMats('h'))); m.position.set(STACK.x + rand(-.01,.01), .12 + SH/2 + i*SH, STACK.z + rand(-.01,.01)); scene.add(m); }
+// glue bucket and roller
+const glueMat = new THREE.MeshStandardMaterial({ color:'#F1DC86', roughness:.12, transparent:true, opacity:.62, envMapIntensity:1, depthWrite:false });
+{
+  const bucket = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.11,.095,.22,24,1,true), mat('#C9CED6',.4,.6,{ side:THREE.DoubleSide }))); bucket.position.set(PR.x+.8,.11,PR.z+.25); scene.add(bucket);
+  const glueTop = new THREE.Mesh(new THREE.CircleGeometry(.105,24).rotateX(-Math.PI/2), mat('#F1DC86',.15)); glueTop.position.set(PR.x+.8,.19,PR.z+.25); scene.add(glueTop);
+}
+const roller = new THREE.Group();
+{
+  const r = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.035,.035,.3,20), mat('#E9C25A',.6))); r.rotation.x = Math.PI/2; roller.add(r);
+  const arm = box(.012,.18,.012,steelDark); arm.position.set(0,.1,0); roller.add(arm);
+  const h = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.016,.016,.14,12), handleMat)); h.position.set(0,.24,0); roller.add(h);
+  roller.userData.roll = r;
+}
+const ROLLER_HOME = V(PR.x+.8,.26,PR.z+.25);
+roller.position.copy(ROLLER_HOME); roller.rotation.z = .5; scene.add(roller);
+const crackOv = new THREE.Mesh(new THREE.PlaneGeometry(.78,.58).rotateX(-Math.PI/2), new THREE.MeshBasicMaterial({ map:crackTex, transparent:true, opacity:0, depthWrite:false }));
+scene.add(crackOv);
+
+/* ================= camera ================= */
+const VIEWS = {
+  hub:        { pos:[.6,4.0,6.9],  target:[-.4,.85,-1.25], hfov:60 },
+  hubNarrow:  { pos:[-.95,2.9,3.6], target:[-1.05,.85,-.75], hfov:70 },
+  latheWide:  { pos:[-2.0,2.2,2.7], target:[-3.35,.85,-.45], hfov:68 },
+  latheClose: { pos:[-2.35,1.95,-2.15], target:[-2.6,1.1,-.6], hfov:60 },
+  lathePeel:  { pos:[-1.15,2.65,1.05], target:[-2.65,1.1,-.35], hfov:62 },
+  steam:      { pos:[-5.05,2.15,1.45], target:[-4.6,.65,-.6], hfov:62 },
+  latheCut:   { pos:[-1.25,2.45,2.35], target:[-2.35,1.0,.3], hfov:66 },
+  jigSetup:   { pos:[O.x+.95,O.y+.25,O.z+.17], target:[O.x,O.y+.19,O.z+.13], hfov:34 },
+  pressWide:  { pos:[PR.x-.2,1.75,PR.z+2.0], target:[PR.x+.05,.95,PR.z], hfov:56 },
+  pressTop:   { pos:[PR.x-.1,1.42,PR.z+1.3], target:[PR.x,.84,PR.z], hfov:54 },
+  pressEdge:  { pos:[PR.x+.27,.93,PR.z+.74], target:[PR.x+.12,.84,PR.z+.29], hfov:26 },
+  jigCut:     { pos:[O.x+.08,O.y+.5,O.z+.3], target:[O.x,O.y,O.z-.06], hfov:36 },
+};
+const hubView = () => innerWidth <= 620 ? VIEWS.hubNarrow : VIEWS.hub;
+const curT = new THREE.Vector3(...VIEWS.hub.target);
+camera.position.set(...VIEWS.hub.pos).add(V(0,1.2,3));
+let curH = VIEWS.hub.hfov;
+const cam = { t:1, dur:1, fromP:V(0,0,0), toP:V(0,0,0), fromT:V(0,0,0), toT:V(0,0,0), fromH:60, toH:60, done:null };
+const camBase = new THREE.Vector3().copy(camera.position);
+function flyTo(v, dur=1.4){
+  cam.fromP.copy(camBase); cam.fromT.copy(curT); cam.fromH = curH;
+  cam.toP.set(...v.pos); cam.toT.set(...v.target); cam.toH = v.hfov; cam.t = 0; cam.dur = dur;
+  return new Promise(r => { cam.done = r; });
+}
+const mouse = { x:0, y:0, px:0, py:0, down:false };
+// each view is composed for a 16:10 box; that box is fitted into whatever part of the screen the panels leave free
+const fb = { s:0, cx:0, cy:0 };
+function freeBox(){
+  const W = innerWidth, H = innerHeight, top = 64;
+  const rects = [];
+  if (mode !== 'hub' && mode !== 'intro' && !panel.hidden && $('#result').hidden) rects.push(panel.getBoundingClientRect());
+  if (hud.childElementCount) rects.push(hud.getBoundingClientRect());
+  // try every box whose edges come from the screen and the panels; keep the largest 16:10 one that no panel covers
+  const xs = [0, W], ys = [top, H];
+  rects.forEach(r => { xs.push(r.left - 8, r.right + 8); ys.push(r.top - 8, r.bottom + 8); });
+  let best = null;
+  for (const x0 of xs) for (const x1 of xs) for (const y0 of ys) for (const y1 of ys){
+    if (x1 - x0 < 60 || y1 - y0 < 60 || x0 < 0 || x1 > W || y0 < top || y1 > H) continue;
+    if (rects.some(r => x0 < r.right && x1 > r.left && y0 < r.bottom && y1 > r.top)) continue;
+    const sc = Math.min((x1 - x0)/16, (y1 - y0)/10);
+    if (!best || sc > best.s) best = { s:sc, cx:(x0 + x1)/2, cy:(y0 + y1)/2 };
+  }
+  return best || { s:Math.min(W/16, (H - top)/10), cx:W/2, cy:(top + H)/2 };
+}
+function applyFov(){
+  const W = innerWidth, H = innerHeight, a = W/H, t = freeBox();
+  if (!fb.s) Object.assign(fb, t); else { fb.s = lerp(fb.s, t.s, .1); fb.cx = lerp(fb.cx, t.cx, .1); fb.cy = lerp(fb.cy, t.cy, .1); }
+  const hf = 2*Math.atan(Math.tan(THREE.MathUtils.degToRad(curH)/2) * W/(fb.s*16));
+  camera.fov = clamp(THREE.MathUtils.radToDeg(2*Math.atan(Math.tan(hf/2)/a)), 20, 115); camera.aspect = a;
+  const dx = fb.cx - W/2, dy = fb.cy - H/2;
+  if (Math.abs(dx) > .5 || Math.abs(dy) > .5) camera.setViewOffset(W, H, -dx, -dy, W, H); else camera.clearViewOffset();
+  camera.updateProjectionMatrix();
+}
+function updateCam(dt){
+  if (cam.t < 1){
+    cam.t = Math.min(1, cam.t + dt/cam.dur); const k = ease(cam.t);
+    camBase.lerpVectors(cam.fromP, cam.toP, k); curT.lerpVectors(cam.fromT, cam.toT, k); curH = lerp(cam.fromH, cam.toH, k);
+    if (cam.t >= 1 && cam.done){ const d = cam.done; cam.done = null; d(); }
+  }
+  camera.position.copy(camBase);
+  if (mode === 'hub' || mode === 'intro'){ const tt = performance.now()/1000; mouse.px = lerp(mouse.px, mouse.x, .04); mouse.py = lerp(mouse.py, mouse.y, .04); camera.position.x += mouse.px*.9 + Math.sin(tt*.23)*.6; camera.position.y += mouse.py*.35 + Math.sin(tt*.15)*.18; camera.position.z += Math.cos(tt*.19)*.35; }
+  applyFov(); camera.lookAt(curT);
+}
+
+/* ================= UI helpers ================= */
+const panel = $('#panel'), hud = $('#hud'), tagsEl = $('#tags');
+if (innerHeight < 700 || innerWidth <= 620) panel.classList.add('mini');
+let toastT = null;
+function toast(msg, kind=''){
+  const t = $('#toast'); t.textContent = msg; t.className = 'toast show ' + kind;
+  clearTimeout(toastT); toastT = setTimeout(()=> t.className = 'toast ' + kind, 2600);
+}
+function setPanel({ step='', title, text, html='' }){
+  panel.hidden = false;
+  const mini = panel.classList.contains('mini');
+  panel.innerHTML = `<div class="ph"><span class="step">${step}</span><span class="ph-r"><button type="button" class="link" id="p-min" aria-expanded="${!mini}">${mini ? 'Подсказка' : 'Свернуть'}</button><button type="button" class="link" id="p-back">← В мастерскую</button></span></div><h2>${title}</h2><p class="desc">${text}</p>${html}`;
+  $('#p-back').onclick = goHub;
+  $('#p-min').onclick = () => { const m = panel.classList.toggle('mini'); const b = $('#p-min'); b.textContent = m ? 'Подсказка' : 'Свернуть'; b.setAttribute('aria-expanded', String(!m)); };
+}
+function meterHTML(id, label, band){
+  return `<div class="meter"><div class="lbl"><span>${label}</span><span class="val" id="${id}-v">—</span></div><div class="bar">${band ? `<span class="band" style="left:${band[0]}%;width:${band[1]-band[0]}%"></span><span class="needle" id="${id}-n"></span>` : `<i id="${id}-b"></i>`}</div></div>`;
+}
+function setMeter(id, frac, text, color){
+  const b = document.getElementById(id+'-b'), n = document.getElementById(id+'-n'), v = document.getElementById(id+'-v');
+  if (b){ b.style.width = (clamp(frac,0,1)*100).toFixed(1)+'%'; if (color) b.style.background = color; }
+  if (n) n.style.left = (clamp(frac,0,1)*100).toFixed(1)+'%';
+  if (v) v.textContent = text;
+}
+function bindHold(el, on){
+  if (!el) return;
+  const down = e => { e.preventDefault(); initAudio(); el.classList.add('on'); on(true); try{ el.setPointerCapture(e.pointerId); }catch(_){} };
+  const up = () => { el.classList.remove('on'); on(false); };
+  el.addEventListener('pointerdown', down); el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up); el.addEventListener('lostpointercapture', up);
+}
+const keys = {};
+addEventListener('keydown', e => { if (e.repeat) return; keys[e.code] = true; if (['Space','ArrowUp','ArrowLeft','ArrowRight','ArrowDown'].includes(e.code) && mode !== 'hub') e.preventDefault(); onKey(e.code); });
+addEventListener('keyup', e => { keys[e.code] = false; });
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+
+// station tags
+const tagEls = STATIONS.map(s => {
+  const b = document.createElement('button'); b.type = 'button'; b.className = 'tag pe' + (s.locked ? ' locked' : '');
+  b.innerHTML = `<b>${s.name}</b><span>${s.locked ? 'скоро' : '☆☆☆'}</span>`;
+  if (!s.locked) b.addEventListener('click', () => openStation(s.id));
+  tagsEl.appendChild(b); return b;
+});
+function refreshTags(){
+  STATIONS.forEach((s,i) => { if (s.locked) return; const n = best[s.id] || 0; tagEls[i].querySelector('span').textContent = '★'.repeat(n) + '☆'.repeat(3-n); });
+  $('#score').innerHTML = `★ <b>${totalStars()}</b> / ${OPEN_IDS.length*3}`;
+}
+const hintTags = [];
+function setHintTags(list){
+  hintTags.forEach(h => h.el.remove()); hintTags.length = 0;
+  list.forEach(([text, pos]) => { const el = document.createElement('div'); el.className = 'tag hint'; el.innerHTML = `<b>${text}</b>`; tagsEl.appendChild(el); hintTags.push({ el, pos }); });
+}
+const tmpV = new THREE.Vector3();
+function placeTag(el, pos, show){
+  tmpV.copy(pos).project(camera);
+  const vis = show && tmpV.z < 1 && Math.abs(tmpV.x) < 1.2 && Math.abs(tmpV.y) < 1.2;
+  el.style.opacity = vis ? 1 : 0; el.style.pointerEvents = vis ? 'auto' : 'none';
+  el.style.left = ((tmpV.x*.5+.5)*innerWidth).toFixed(1) + 'px'; el.style.top = ((-tmpV.y*.5+.5)*innerHeight).toFixed(1) + 'px';
+}
+function updateTags(){
+  const showHub = mode === 'hub' && cam.t >= .85;
+  const items = STATIONS.map((s,i) => {
+    const el = tagEls[i];
+    tmpV.copy(s.anchor).project(camera);
+    const vis = showHub && tmpV.z < 1 && Math.abs(tmpV.x) < 1.2 && Math.abs(tmpV.y) < 1.2;
+    return { el, vis, x:(tmpV.x*.5+.5)*innerWidth, y:(-tmpV.y*.5+.5)*innerHeight, w:el.offsetWidth, h:el.offsetHeight };
+  });
+  // the tag lowest on screen (nearest) keeps its spot; any tag that would cover it climbs above, with a thin line down to its machine
+  items.sort((a,b) => b.y - a.y);
+  const placed = [];
+  items.forEach((it, k) => {
+    let b = it.y;
+    if (it.vis && it.w){
+      for (let guard = 0; guard < 12; guard++){
+        const hit = placed.find(p => Math.abs(it.x - p.x) < (it.w + p.w)/2 + 12 && b - it.h < p.b + 10 && b + 10 > p.b - p.h);
+        if (!hit) break;
+        b = hit.b - hit.h - 14;
+      }
+      placed.push({ x:it.x, b, w:it.w, h:it.h });
+    }
+    const el = it.el;
+    el._b = (el._b == null || !it.vis) ? b : lerp(el._b, b, .25);
+    el.style.opacity = it.vis ? 1 : 0; el.style.pointerEvents = it.vis ? 'auto' : 'none';
+    const lx = it.w ? clamp(it.x, it.w/2 + 8, innerWidth - it.w/2 - 8) : it.x;
+    el.style.left = lx.toFixed(1) + 'px'; el.style.top = el._b.toFixed(1) + 'px';
+    el.style.setProperty('--lead', Math.max(0, it.y - el._b).toFixed(1) + 'px');
+    el.style.zIndex = String(50 - k);
+  });
+  hintTags.forEach(h => placeTag(h.el, h.pos, cam.t >= 1));
+}
+
+/* ================= flow ================= */
+let mode = 'intro', RUN = 0;
+const waiters = []; let lastDt = 0;
+function until(fn){ return new Promise(res => waiters.push({ fn, res })); }
+function sleep(s){ let t = 0; return until(() => (t += lastDt) >= s); }
+const tweens = [];
+function tween(dur, fn){ return new Promise(res => tweens.push({ t:0, dur, fn, res })); }
+function moveTo(obj, to, dur){ const from = obj.position.clone(); return tween(dur, k => obj.position.lerpVectors(from, to, ease(k))); }
+
+function goHub(){
+  RUN++; mode = 'hub'; panel.hidden = true; hud.innerHTML = ''; setHintTags([]);
+  allLoopsOff(); L.spin = 0; J.mode = 'idle'; PS.step = ''; PS.busy = false;
+  $('#result').hidden = true; flyTo(hubView(), 1.5); refreshTags();
+}
+function openStation(id){
+  initAudio(); tone(880,.08,.06);
+  if (id === 'lathe') runLathe(); else if (id === 'jig') runJig(); else if (id === 'press') runPress(); else if (id === 'mill') runMill(); else if (id === 'sand') runSand(); else if (id === 'draw') runDraw();
+}
+function showResult({ title, stars, mistakes, lines, again }){
+  const r = $('#result');
+  r.innerHTML = `<div class="card"><p class="eyebrow">Станция пройдена</p><h2>${title}</h2>
+    <p class="stars" aria-label="Звёзд: ${stars} из 3">${'★'.repeat(stars)}<span class="dim">${'★'.repeat(3-stars)}</span></p>
+    <p>${mistakes}</p><p><b style="color:var(--fg)">Что запомнить:</b></p><ul>${lines.map(l=>`<li>${l}</li>`).join('')}</ul>
+    <div class="row"><button type="button" class="btn" id="r-hub">В мастерскую</button><button type="button" class="btn ghost" id="r-again">Пройти ещё раз</button></div></div>`;
+  r.hidden = false; panel.hidden = true; hud.innerHTML = '';
+  $('#r-hub').onclick = goHub; $('#r-again').onclick = () => { r.hidden = true; again(); };
+}
+
+/* ================= LATHE station ================= */
+const L = { step:'', spin:0, steam:0, steamHold:false, feed:35, thick:1.2, knot:0, knotT:0, nextKnot:4, inBand:0, total:0, F:ZG, cuts:0, cutMiss:0, wet:false, ribbonLen:0, scroll:0, chopReq:false, autoThick:false, sheets:[] };
+function resetLathe(){
+  logAsm.position.copy(LOG_HOME); logAsm.rotation.set(0,0,0); setLogR(.2); resetBark();
+  woodSide.color.set('#E9CFA0'); woodSide.roughness = .7; endMat.roughness = .7;
+  ribbon.visible = false; ribbonCrack.material.opacity = 0; ribbonMat.color.set('#ffffff');
+  while (sheetsGroup.children.length) sheetsGroup.remove(sheetsGroup.children[0]);
+  L.sheets = []; carriage.position.z = .32; gBlade.position.y = AX+.32;
+  Object.assign(L, { step:'', spin:0, steam:0, steamHold:false, feed:35, thick:1.2, knot:0, knotT:0, nextKnot:4, inBand:0, total:0, F:ZG, cuts:0, cutMiss:0, chopReq:false, autoThick:false });
+}
+async function runLathe(){
+  const run = ++RUN; const alive = () => run === RUN;
+  mode = 'lathe'; $('#result').hidden = true; resetLathe(); setHintTags([]);
+  // step 1 — debarking
+  L.step = 'bark'; L.spin = .55;
+  flyTo(VIEWS.latheClose, 1.6);
+  hud.innerHTML = meterHTML('bk','Кора снята');
+  setPanel({ step:'Шаг 1 из 4 · окорка', title:'Сними кору', text:'Шпон делают только из чистой древесины. Води мышкой или пальцем по бревну, зажав кнопку: кора отлетает кусками. Бревно медленно поворачивается, чтобы ты достал со всех сторон.' });
+  await until(() => !alive() || barkAlive <= BN*.05);
+  if (!alive()) return;
+  barkInfo.forEach((b,j) => { if (b.alive){ b.alive = false; bark.setMatrixAt(j, zeroM); } }); bark.instanceMatrix.needsUpdate = true; barkAlive = 0;
+  setMeter('bk',1,'100%','var(--ok)'); toast('Бревно окорено!','ok'); tone(784,.15,.08);
+  await sleep(.6); if (!alive()) return;
+  // step 2 — steaming
+  L.step = 'steamGo'; L.spin = 0;
+  setPanel({ step:'Шаг 2 из 4 · пропарка', title:'Распарь бревно', text:'Сухая древесина при лущении трескается. Бревно отправляют в горячую воду или под пар, чтобы оно стало мягким.', html:'<div class="row"><button type="button" class="btn" id="go-steam">Опустить в пропарочную ванну</button></div>' });
+  await new Promise(res => $('#go-steam').onclick = res); if (!alive()) return;
+  panel.querySelector('#go-steam').disabled = true;
+  flyTo(VIEWS.steam, 1.4);
+  await moveTo(logAsm, V(LOG_HOME.x, 1.75, LOG_HOME.z), .8); if (!alive()) return;
+  await moveTo(logAsm, V(TANK.x, 1.75, TANK.z), 1.2); if (!alive()) return;
+  await moveTo(logAsm, V(TANK.x, .47, TANK.z), .9); if (!alive()) return;
+  burst({ freq:500, q:.6, dur:.4, gain:.3, type:'lowpass' });
+  L.step = 'steam';
+  hud.innerHTML = meterHTML('st','Мягкость древесины');
+  setPanel({ step:'Шаг 2 из 4 · пропарка', title:'Подавай пар', text:'Держи кнопку или пробел, пока древесина не станет мягкой. Отпустишь, и вода начнёт остывать.', html:'<div class="row"><button type="button" class="btn hold" id="steam-btn">Держать пар</button></div><p class="keys"><kbd>Пробел</kbd> тоже работает</p>' });
+  bindHold($('#steam-btn'), v => L.steamHold = v);
+  await until(() => !alive() || L.steam >= 1); if (!alive()) return;
+  L.steamHold = false; loopSet('steam',0);
+  woodSide.color.set('#CFA56C'); woodSide.roughness = .35; endMat.roughness = .4; L.wet = true;
+  toast('Древесина мягкая. Можно лущить!','ok'); tone(784,.15,.08);
+  await moveTo(logAsm, V(TANK.x, 1.75, TANK.z), .9); if (!alive()) return;
+  flyTo(VIEWS.latheClose, 1.4);
+  await moveTo(logAsm, V(LOG_HOME.x, 1.75, LOG_HOME.z), 1.2); if (!alive()) return;
+  await moveTo(logAsm, LOG_HOME, .7); if (!alive()) return;
+  thud();
+  // step 3 — peeling
+  L.step = 'peelReady';
+  flyTo(VIEWS.lathePeel, 1.2);
+  hud.innerHTML = meterHTML('th','Толщина шпона, мм',[22.5,45]) + meterHTML('q','Ровная лента');
+  setPanel({ step:'Шаг 3 из 4 · лущение', title:'Лущи шпон', text:'Бревно вращается, нож срезает с него тонкую ленту. Держи толщину в зелёной зоне, <b>0,9–1,8 мм</b>. Тоньше — лента рвётся, толще — трескается. Сучки сбивают подачу, подстраивай её.',
+    html:'<div class="slider"><label for="feed"><span>Подача ножа</span><span id="feed-v" class="mono">—</span></label><input type="range" id="feed" min="0" max="100" value="35" disabled></div><div class="row"><button type="button" class="btn" id="start-lathe">Запустить станок</button></div><p class="keys">Подача: ползунок или <kbd>↑</kbd> <kbd>↓</kbd></p>' });
+  const feedEl = $('#feed');
+  feedEl.addEventListener('input', () => L.feed = +feedEl.value);
+  await new Promise(res => $('#start-lathe').onclick = res); if (!alive()) return;
+  $('#start-lathe').remove(); feedEl.disabled = false; feedEl.focus();
+  L.step = 'peel'; L.spin = 7; L.knotT = 0; L.nextKnot = 3.5; loopSet('motor',.45);
+  ribbon.visible = true;
+  await until(() => !alive() || logR <= .115); if (!alive()) return;
+  // step 4 — cutting sheets
+  L.step = 'cutPrep'; L.autoThick = true; L.knot = 0;
+  const q = L.total ? L.inBand / L.total : 0; L.quality = q;
+  toast(`Лента готова. Ровной вышло ${Math.round(q*100)}%`, q > .7 ? 'ok' : 'bad');
+  flyTo(VIEWS.latheCut, 1.4);
+  hud.innerHTML = meterHTML('sh','Листы шпона') + meterHTML('ac','Точность рубки');
+  setMeter('sh',0,'0 / 4'); setMeter('ac',0,'—');
+  setPanel({ step:'Шаг 4 из 4 · рубка', title:'Нарежь ленту на листы', text:'Лента ползёт по транспортёру. Жми «Рубить», когда её край дойдёт до <b>жёлтой метки</b>. Нужно четыре ровных листа, потом их отправят в сушилку.',
+    html:'<div class="row"><button type="button" class="btn" id="chop">Рубить</button></div><p class="keys"><kbd>Пробел</kbd> тоже рубит</p>' });
+  $('#chop').onclick = () => { L.chopReq = true; };
+  L.F = ZG; L.step = 'cut';
+  await until(() => !alive() || L.cuts >= 4); if (!alive()) return;
+  L.step = 'end'; loopSet('motor',0,.5); loopSet('cut',0,.3);
+  await sleep(1.4); if (!alive()) return;
+  L.spin = 0;
+  let m = 0; if (L.quality < .75) m++; if (L.quality < .5) m++; m += L.cutMiss;
+  const stars = starsOf(m); best.lathe = Math.max(best.lathe||0, stars); saveBest(); refreshTags(); chord();
+  showResult({ title:'Лущильный станок', stars, mistakes:`Ровная лента: ${Math.round(L.quality*100)}%. Неточных листов: ${L.cutMiss}.`,
+    lines:['Перед лущением бревно очищают от коры, это окорка.','Бревно распаривают в горячей воде или паром, чтобы древесина стала мягкой и не трескалась.','На лущильном станке бревно вращается, а нож снимает с него непрерывную ленту шпона.','Ленту режут на листы и сушат. Из таких листов потом клеят фанеру.','Тонкий остаток бревна после лущения называют карандашом.'],
+    again: runLathe });
+}
+function updateLathe(dt){
+  if (mode !== 'lathe') return;
+  logAsm.rotation.x -= L.spin*dt;
+  if (L.step === 'bark') setMeter('bk', 1 - barkAlive/BN, Math.round((1-barkAlive/BN)*100)+'%');
+  if (L.step === 'steam'){
+    const hold = L.steamHold || keys.Space;
+    if (hold){ L.steam = Math.min(1, L.steam + dt*.17); if (Math.random() < dt*22) spawnSteam(); }
+    else L.steam = Math.max(0, L.steam - dt*.03);
+    if (Math.random() < dt*3) spawnSteam();
+    loopSet('steam', hold ? .25 : .04);
+    setMeter('st', L.steam, Math.round(L.steam*100)+'%', L.steam >= 1 ? 'var(--ok)' : '');
+  }
+  if (L.step === 'peel' || L.step === 'cutPrep' || L.step === 'cut' || L.step === 'end'){
+    // feed via keys
+    if (L.step === 'peel'){
+      if (keys.ArrowUp){ L.feed = clamp(L.feed + dt*40, 0, 100); }
+      if (keys.ArrowDown){ L.feed = clamp(L.feed - dt*40, 0, 100); }
+      const fe = $('#feed'); if (fe && +fe.value !== Math.round(L.feed)) fe.value = Math.round(L.feed);
+      L.knotT += dt;
+      if (L.knotT > L.nextKnot){ L.knotT = 0; L.nextKnot = rand(4.5,7); L.knotTarget = (Math.random() < .5 ? -1 : 1)*rand(.3,.5); L.knotLeft = 1.5; toast('Сучок! Подстрой подачу'); burst({ freq:600, q:1, dur:.15, gain:.3 }); }
+      if (L.knotLeft > 0){ L.knotLeft -= dt; L.knot = lerp(L.knot, L.knotTarget, .08); } else L.knot = lerp(L.knot, 0, .05);
+      L.thick = .5 + L.feed*.02 + L.knot;
+      const ok = L.thick >= .9 && L.thick <= 1.8;
+      L.total += dt; if (ok) L.inBand += dt;
+      setMeter('th', clamp(L.thick/4,0,1), L.thick.toFixed(2));
+      const fv = $('#feed-v'); if (fv) fv.textContent = Math.round(L.feed) + '%';
+      setMeter('q', L.inBand/Math.max(L.total,.001), Math.round(L.inBand/Math.max(L.total,.001)*100)+'%', ok ? 'var(--ok)' : 'var(--bad)');
+    } else L.thick = 1.3;
+    const thin = L.thick < .7, thick = L.thick > 1.9;
+    if (L.step !== 'end') setLogR(Math.max(.062, logR - L.thick*.0042*dt*(L.step === 'cut' ? .55 : 1)));
+    carriage.position.z = logR;
+    L.scroll += L.spin*logR*dt*2.2;
+    ribbonTex.offset.y = -L.scroll;
+    ribbonCrack.material.opacity = thick ? .9 : Math.max(0, ribbonCrack.material.opacity - dt*2);
+    ribbonMat.color.set(thick ? '#E7B9A0' : '#ffffff');
+    if (thin){ if (Math.random() < dt*30) spawnChip(V(LATHE.x + rand(-.5,.5), AX + .02, LATHE.z + logR + .02), '#E4C590', .03); }
+    let front = ZEND;
+    if (L.step === 'cut' || L.step === 'end'){
+      if (L.step === 'cut'){
+        L.F += dt*.17;
+        if (L.chopReq || keys.Space || L.F > ZM + .16){
+          const late = L.F > ZM + .16 && !L.chopReq && !keys.Space;
+          keys.Space = false; L.chopReq = false; chop(late);
+        }
+      }
+      front = L.F;
+    }
+    ribbon.visible = !thin && L.step !== 'end';
+    loopSet('cut', L.step === 'end' ? 0 : .12 + clamp(L.thick,0,2.5)*.1, .08);
+    ribbon.position.z = logR;
+    const len = Math.max(.001, front - logR);
+    ribbon.scale.z = len; ribbonTex.repeat.set(1, len*1.6);
+  }
+  // guillotine relax
+  gBlade.position.y = lerp(gBlade.position.y, AX + .32, .12);
+}
+function chop(late){
+  const len = L.F - ZG; const err = Math.abs(L.F - ZM);
+  gBlade.position.y = AX + .02; thud();
+  const good = err <= .06 && !late;
+  if (!good){ L.cutMiss++; toast(late ? 'Опоздал: лист вышел слишком длинным' : (L.F < ZM ? 'Рано: лист коротковат' : 'Поздновато: лист длинноват'), 'bad'); }
+  else toast('Ровный лист!','ok');
+  const sh = new THREE.Mesh(new THREE.PlaneGeometry(1.05, Math.max(len,.05)).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ map:birchTex, roughness:.7, side:THREE.DoubleSide, envMapIntensity:.35 }));
+  sh.position.set(0, AX + .005, ZG + len/2); sh.castShadow = true; sheetsGroup.add(sh);
+  const idx = L.cuts; L.cuts++;
+  setMeter('sh', L.cuts/4, `${L.cuts} / 4`);
+  setMeter('ac', (L.cuts - L.cutMiss)/Math.max(L.cuts,1), `${L.cuts - L.cutMiss} из ${L.cuts}`, L.cutMiss ? 'var(--bad)' : 'var(--ok)');
+  L.F = ZG;
+  (async () => {
+    await moveTo(sh, V(0, AX + .005, ZEND - len/2 + .1), .7);
+    await moveTo(sh, V(1.0, AX + .35, 1.05), .6);
+    await moveTo(sh, V(1.55, .125 + idx*.006, 1.05), .5);
+    burst({ freq:400, q:.6, dur:.1, gain:.2, type:'lowpass' });
+  })();
+}
+
+/* ================= JIG station ================= */
+const J = { mode:'idle', out:false, down:false, P:[0,-100], th:Math.PI/2, idx:0, heat:0, jam:0, broken:false, done:false, breaks:0, setupMiss:0, devSum:0, distSum:0, dev:0, phase:0, sawing:false, left:false, right:false, fast:false, strokeT:0 };
+function drawPieceBase(){
+  pg.fillStyle = '#E4C590'; pg.fillRect(0,0,1024,1024);
+  grainLines(pg,0,0,1024,1024,'150,100,50',140,5);
+  // pencil contour
+  pg.strokeStyle = 'rgba(55,58,68,.85)'; pg.lineWidth = 2.6; pg.lineJoin = 'round'; pg.beginPath();
+  HEART.forEach((p,i) => { const [x,y] = toC(p); i ? pg.lineTo(x,y) : pg.moveTo(x,y); }); pg.stroke();
+  pg.setLineDash([10,9]); pg.beginPath(); const a = toC([0,-100]), b = toC([0,TIP_Y]); pg.moveTo(a[0],a[1]); pg.lineTo(b[0],b[1]); pg.stroke(); pg.setLineDash([]);
+  pg.fillStyle = 'rgba(55,58,68,.85)'; pg.font = '700 30px Nunito, sans-serif'; pg.fillText('старт', a[0]+14, a[1]-24);
+  pieceTex.needsUpdate = true;
+}
+function resetJig(){
+  Object.assign(J, { out:false, down:false, P:[0,-100], th:Math.PI/2, idx:0, heat:0, jam:0, broken:false, done:false, breaks:0, setupMiss:0, devSum:0, distSum:0, dev:0, phase:0, sawing:false, left:false, right:false, fast:false });
+  teeth.geometry = teethGeos['00']; blade.visible = true; teeth.visible = true; bladeBits.forEach(b => b.m.visible = false);
+  lobz.position.copy(O); drawPieceBase(); pieceTop.visible = true; pieceBox.visible = true; pieceRot.visible = true;
+  if (heartMesh){ pieceInner.remove(heartMesh); heartMesh = null; }
+  applyPiece();
+}
+function applyPiece(){ pieceRot.rotation.y = Math.PI/2 - J.th; pieceInner.position.set(-J.P[0]*.001, 0, J.P[1]*.001); }
+async function runJig(){
+  const run = ++RUN; const alive = () => run === RUN;
+  mode = 'jig'; $('#result').hidden = true; resetJig(); J.mode = 'setup';
+  flyTo(VIEWS.jigSetup, 1.6);
+  lobz.position.set(O.x, O.y+.22, O.z); pieceRot.visible = false;
+  setHintTags([['рамка', V(O.x, O.y+.22+.16, O.z+.22)], ['ручка', V(O.x, O.y+.22-.2, O.z)], ['пилка', V(O.x, O.y+.22+.06, O.z-.006)]]);
+  hud.innerHTML = '';
+  const renderSetup = () => setPanel({ step:'Шаг 1 из 2 · пилка', title:'Вставь пилку правильно',
+    text:`Посмотри на зубья вблизи. Сейчас они смотрят <b>${J.out ? 'наружу, от рамки' : 'внутрь, к рамке'}</b> и <b>${J.down ? 'вниз, к ручке' : 'вверх, от ручки'}</b>. Поверни пилку как надо и закрепи.`,
+    html:`<div class="row"><button type="button" class="btn ghost" id="t-side">${J.out ? 'Зубьями к рамке' : 'Зубьями от рамки'}</button><button type="button" class="btn ghost" id="t-flip">${J.down ? 'Зубьями вверх' : 'Зубьями вниз'}</button></div><div class="row"><button type="button" class="btn" id="t-fix">Закрепить пилку</button></div>` });
+  const wire = () => {
+    $('#t-side').onclick = () => { J.out = !J.out; teeth.geometry = teethGeos[`${+J.out}${+J.down}`]; tone(520,.05,.05); renderSetup(); wire(); };
+    $('#t-flip').onclick = () => { J.down = !J.down; teeth.geometry = teethGeos[`${+J.out}${+J.down}`]; tone(520,.05,.05); renderSetup(); wire(); };
+    $('#t-fix').onclick = () => {
+      if (J.out && J.down){ J.mode = 'ready'; return; }
+      J.setupMiss++; burst({ freq:1200, q:2, dur:.1, gain:.25 });
+      toast(!J.out ? 'Зубья должны смотреть наружу, от рамки' : 'Зубья должны смотреть вниз, к ручке: лобзик режет при движении вниз', 'bad');
+    };
+  };
+  renderSetup(); wire();
+  await until(() => !alive() || J.mode === 'ready'); if (!alive()) return;
+  tone(660,.1,.08); setTimeout(()=>tone(880,.12,.08),80); toast('Пилка стоит правильно: наружу и вниз','ok');
+  setHintTags([]);
+  await sleep(.4); if (!alive()) return;
+  flyTo(VIEWS.jigCut, 1.5);
+  pieceRot.visible = true; await moveTo(lobz, O.clone(), .9); if (!alive()) return;
+  hud.innerHTML = meterHTML('dv','Отклонение от линии') + meterHTML('pr','Пройдено') + meterHTML('ht','Нажим на пилку') + meterHTML('jm','Пилку зажимает');
+  renderCut();
+  J.mode = 'cut';
+  await until(() => !alive() || J.done); if (!alive()) return;
+  await sleep(2.2); if (!alive()) return;
+  const avg = J.devSum/Math.max(J.distSum,1);
+  let m = J.setupMiss + J.breaks + (avg > 3 ? 1 : 0) + (avg > 5 ? 1 : 0);
+  const stars = starsOf(m); best.jig = Math.max(best.jig||0, stars); saveBest(); refreshTags();
+  showResult({ title:'Выпиловочный столик', stars, mistakes:`Среднее отклонение от линии: ${avg.toFixed(1)} мм. Сломано пилок: ${J.breaks}. Ошибок при установке пилки: ${J.setupMiss}.`,
+    lines:['Зубья пилки смотрят наружу, от рамки, и вниз, к ручке.','Заготовку кладут на выпиловочный столик и прижимают рукой, лобзик держат вертикально.','Пилят плавно, без нажима: от сильного нажима пилка перегревается и лопается.','На поворотах поворачивают заготовку, а не лобзик, и не останавливают пилку.'],
+    again: runJig });
+}
+function renderCut(){
+  setPanel({ step:'Шаг 2 из 2 · выпиливание', title:'Выпили сердце по линии',
+    text:'Лобзик стоит на месте, ты двигаешь и поворачиваешь заготовку. Держи «Пилить», чтобы вести пропил вперёд. На поворотах <b>не останавливай пилку</b>: поворачивай заготовку, пока пилка ходит. Без нажима!',
+    html:`<div class="row"><button type="button" class="btn ghost hold" id="j-l" aria-label="Повернуть влево">⟲ Влево</button><button type="button" class="btn hold" id="j-saw">Пилить</button><button type="button" class="btn ghost hold" id="j-r" aria-label="Повернуть вправо">Вправо ⟳</button></div>
+      <div class="row"><button type="button" class="btn ghost hold" id="j-fast">С нажимом</button></div>
+      <p class="keys"><kbd>Пробел</kbd> пилить · <kbd>←</kbd> <kbd>→</kbd> повернуть · <kbd>Shift</kbd> нажим</p>` });
+  bindHold($('#j-l'), v => J.left = v); bindHold($('#j-r'), v => J.right = v);
+  bindHold($('#j-saw'), v => J.sawing = v); bindHold($('#j-fast'), v => J.fast = v);
+}
+function segDist(p,a,b){
+  const vx = b[0]-a[0], vy = b[1]-a[1], wx = p[0]-a[0], wy = p[1]-a[1];
+  const t = clamp((vx*wx + vy*wy)/(vx*vx + vy*vy || 1), 0, 1);
+  const dx = a[0] + vx*t - p[0], dy = a[1] + vy*t - p[1]; return Math.hypot(dx,dy);
+}
+function breakBlade(reason){
+  J.broken = true; J.breaks++; J.sawing = J.left = J.right = J.fast = false; J.heat = 0; J.jam = 0;
+  crack(); blade.visible = false; teeth.visible = false;
+  bladeBits.forEach((b,i) => { b.m.visible = true; b.m.position.set(O.x, O.y + (i ? .07 : -.03), O.z); b.m.rotation.set(0,0,0); b.v.set(rand(-.15,.15), rand(.1,.3), rand(.05,.2)); b.w = rand(-6,6); });
+  const why = reason === 'jam' ? 'Ты поворачивал заготовку, когда пилка стояла. Её зажало в пропиле, и она сломалась.' : 'Слишком сильный нажим: пилка перегрелась и лопнула.';
+  setPanel({ step:'Пилка лопнула', title:'Нужна новая пилка', text: why + ' Так бывает и в настоящей мастерской, поэтому пилят плавно и поворачивают на ходу.',
+    html:'<div class="row"><button type="button" class="btn" id="j-new">Вставить новую пилку</button></div>' });
+  $('#j-new').onclick = () => { blade.visible = true; teeth.visible = true; bladeBits.forEach(b => b.m.visible = false); J.broken = false; tone(660,.08,.06); renderCut(); };
+}
+function finishJig(){
+  J.done = true; J.sawing = false; chord(); toast('Готово! Сердце выпилено','ok');
+  pg.fillStyle = 'rgba(40,24,12,.92)'; pg.beginPath(); HEART.forEach((p,i) => { const [x,y] = toC(p); i ? pg.lineTo(x,y) : pg.moveTo(x,y); }); pg.closePath(); pg.fill(); pieceTex.needsUpdate = true;
+  moveTo(lobz, V(O.x, O.y - .32, O.z), 1.0);
+  const sh = new THREE.Shape(HEART.map(([x,y]) => new THREE.Vector2(x*.001, y*.001)));
+  const g = new THREE.ExtrudeGeometry(sh, { depth:.004, bevelEnabled:false }); g.rotateX(-Math.PI/2);
+  heartMesh = shadowy(new THREE.Mesh(g, [new THREE.MeshStandardMaterial({ map:birchTex, color:'#F3DDB0', roughness:.6 }), plyEdge]));
+  heartMesh.position.y = .0005; pieceInner.add(heartMesh);
+  scene.updateMatrixWorld(true);
+  const from = new THREE.Vector3(); heartMesh.getWorldPosition(from);
+  const startQ = heartMesh.getWorldQuaternion(new THREE.Quaternion());
+  pieceInner.remove(heartMesh); scene.add(heartMesh); heartMesh.position.copy(from); heartMesh.quaternion.copy(startQ);
+  const show = V(O.x - .02, O.y + .09, O.z + .05);
+  flyTo({ pos:[show.x + .05, show.y + .2, show.z + .3], target:[show.x, show.y - .01, show.z], hfov:48 }, 1.4);
+  const q0 = heartMesh.quaternion.clone(), q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(.35, 0, 0));
+  tween(1.6, k => { const e = ease(k); heartMesh.position.lerpVectors(from, show, e); heartMesh.quaternion.slerpQuaternions(q0, q1, e); });
+}
+function updateJig(dt){
+  for (let i=0;i<DUSTN;i++){
+    if (dustLife[i] > 0){ dustLife[i] -= dt; dustVel[i*3+1] -= dt*.6; dustPos[i*3] += dustVel[i*3]*dt; dustPos[i*3+1] += dustVel[i*3+1]*dt; dustPos[i*3+2] += dustVel[i*3+2]*dt; if (dustPos[i*3+1] < 0) dustLife[i] = 0; }
+    else dustPos[i*3+1] = -10;
+  }
+  dustGeo.attributes.position.needsUpdate = true;
+  bladeBits.forEach(b => { if (!b.m.visible) return; b.v.y -= dt*2.5; b.m.position.addScaledVector(b.v, dt); b.m.rotation.z += b.w*dt; if (b.m.position.y < 0.01){ b.m.position.y = .01; b.v.set(0,0,0); b.w = 0; } });
+  if (mode !== 'jig' || J.mode !== 'cut' || J.broken || J.done){ loopSet('saw', 0, .05); return; }
+  const left = J.left || keys.ArrowLeft || keys.KeyA, right = J.right || keys.ArrowRight || keys.KeyD;
+  const saw = J.sawing || keys.Space || keys.ArrowUp || keys.KeyW;
+  const fast = J.fast || keys.ShiftLeft || keys.ShiftRight;
+  const rot = (left ? 1 : 0) - (right ? 1 : 0);
+  if (saw && fast) J.heat += dt*.34; else J.heat = Math.max(0, J.heat - dt*.22);
+  if (rot && !saw) J.jam += dt*1.1; else J.jam = Math.max(0, J.jam - dt*.8);
+  setMeter('ht', J.heat, J.heat > .6 ? 'опасно' : (J.heat > .05 ? 'растёт' : 'норма'), J.heat > .6 ? 'var(--bad)' : '');
+  setMeter('jm', J.jam, J.jam > .4 ? 'опасно' : 'норма', J.jam > .4 ? 'var(--bad)' : '');
+  for (const [id,v] of [['ht',J.heat],['jm',J.jam]]){ const m = document.getElementById(id+'-b'); if (m) m.closest('.meter').classList.toggle('calm', v < .05); }
+  if (J.heat >= 1) return breakBlade('heat');
+  if (J.jam >= 1) return breakBlade('jam');
+  J.th += rot*(saw ? 1.25 : .6)*dt;
+  if (saw){
+    let v = fast ? 26 : 13; if (rot) v *= .12;
+    const nx = clamp(J.P[0] + Math.cos(J.th)*v*dt, -99, 99), ny = clamp(J.P[1] + Math.sin(J.th)*v*dt, -100, 99);
+    const a = toC(J.P), b = toC([nx,ny]);
+    pg.strokeStyle = '#3A281B'; pg.lineWidth = 3.4; pg.lineCap = 'round'; pg.beginPath(); pg.moveTo(a[0],a[1]); pg.lineTo(b[0],b[1]); pg.stroke(); pieceTex.needsUpdate = true;
+    const dist = Math.hypot(nx-J.P[0], ny-J.P[1]); J.P = [nx,ny];
+    let bestD = 1e9, bi = J.idx;
+    for (let i=Math.max(0,J.idx-6); i<=Math.min(PATH.length-2, J.idx+40); i++){ const d = segDist(J.P, PATH[i], PATH[i+1]); if (d < bestD){ bestD = d; bi = i; } }
+    J.dev = bestD; if (bi > J.idx) J.idx = bi;
+    if (J.idx >= CONTOUR_START){ J.devSum += bestD*dist; J.distSum += dist; }
+    J.phase += dt*18;
+    loopSet('saw', (fast ? .8 : .55)*(.25 + .75*Math.abs(Math.sin(J.phase))), .015);
+    spawnDust(2);
+    if (J.idx >= PATH.length - 3 && bestD < 5) finishJig();
+  }
+  if (!saw) loopSet('saw', 0, .05);
+  lobz.position.y = O.y + (saw ? Math.sin(J.phase)*.009 : 0);
+  applyPiece();
+  const prog = J.idx/(PATH.length-1);
+  setMeter('dv', J.dev/10, J.dev.toFixed(1) + ' мм', J.dev < 2.5 ? 'var(--ok)' : (J.dev < 5 ? 'var(--yellow)' : 'var(--bad)'));
+  setMeter('pr', prog, Math.round(prog*100) + '%');
+}
+function onKey(code){
+  if (mode === 'lathe' && L.step === 'cut' && code === 'Space'){ L.chopReq = true; }
+}
+
+
+/* ================= PRESS station ================= */
+const PS = { step:'', layers:[], T:20, Tset:20, cure:0, pressed:false, scorch:false, hot:0, cold:0, mistakes:0, busy:false };
+const layerY = i => PLAT + SH/2 + i*SH;
+function makeSheet(dir){
+  const g = new THREE.BoxGeometry(.78,SH,.58,24,1,1); g.userData.base = g.attributes.position.array.slice();
+  const m = shadowy(new THREE.Mesh(g, sheetMats(dir))); scene.add(m); return m;
+}
+function warpSheets(k){
+  PS.layers.forEach(l => { const g = l.mesh.geometry, a = g.attributes.position.array, b = g.userData.base;
+    for (let i=0;i<a.length;i+=3){ const x = b[i]/.39; a[i+1] = b[i+1] + k*x*x*.07; } g.attributes.position.needsUpdate = true; g.computeVertexNormals(); });
+}
+function resetPress(full){
+  PS.layers.forEach(l => scene.remove(l.mesh)); PS.layers = [];
+  Object.assign(PS, { step:'', cure:0, pressed:false, hot:0, cold:0, busy:false });
+  if (full) Object.assign(PS, { T:20, Tset:20, scorch:false, mistakes:0 });
+  crackOv.material.opacity = 0; setTopY(TOP_OPEN); roller.position.copy(ROLLER_HOME); roller.rotation.set(0,0,.5);
+}
+async function addLayer(dir){
+  if (PS.layers.length >= 9){ toast('Хватит: для нашего листа девяти слоёв достаточно'); return; }
+  PS.busy = true;
+  const i = PS.layers.length, m = makeSheet(dir);
+  const from = V(STACK.x, .12 + 10*SH + .02, STACK.z), to = V(PR.x, layerY(i), PR.z);
+  m.position.copy(from);
+  burst({ freq:700, q:.6, dur:.12, gain:.15 });
+  await tween(.75, k => { const e = ease(k); m.position.lerpVectors(from, to, e); m.position.y += Math.sin(Math.PI*k)*.35; m.rotation.z = Math.sin(Math.PI*k)*.12; });
+  m.rotation.z = 0; burst({ freq:300, q:.6, dur:.1, gain:.25, type:'lowpass' });
+  PS.layers.push({ dir, glue:false, mesh:m, gp:null }); PS.busy = false;
+}
+function removeTop(){
+  const l = PS.layers.pop(); if (!l){ toast('Плита пуста'); return; }
+  scene.remove(l.mesh); tone(420,.06,.05);
+}
+async function glueTop(){
+  const l = PS.layers[PS.layers.length-1];
+  if (!l){ toast('Сначала положи лист'); return; }
+  if (l.glue){ toast('Клей на этом листе уже есть'); return; }
+  PS.busy = true;
+  const gp = new THREE.Mesh(new THREE.PlaneGeometry(.76,.56).rotateX(-Math.PI/2).translate(.38,0,0), glueMat);
+  gp.position.set(-.38, SH/2 + .0008, 0); gp.scale.x = .001; l.mesh.add(gp); l.gp = gp;
+  const y = l.mesh.position.y + SH/2 + .035, a = V(PR.x-.38, y, PR.z), b = V(PR.x+.38, y, PR.z);
+  roller.rotation.set(0,0,0);
+  await moveTo(roller, a, .45);
+  const r0 = roller.userData.roll.rotation.y;
+  await tween(.9, k => { roller.position.lerpVectors(a, b, k); roller.userData.roll.rotation.y = r0 - k*.76/.035; gp.scale.x = Math.max(.001,k); if (Math.random() < .3) burst({ freq:500, q:.5, dur:.08, gain:.08, type:'lowpass' }); });
+  await moveTo(roller, ROLLER_HOME, .45); roller.rotation.z = .5;
+  l.glue = true; PS.busy = false;
+}
+function analysePly(){
+  const ly = PS.layers, d = [];
+  const ng = ly.findIndex((l,i) => i < ly.length-1 && !l.glue);
+  if (ng >= 0) d.push({ id:'noglue', at:ng });
+  if (ly.some((l,i) => i > 0 && l.dir === ly[i-1].dir)) d.push({ id:'same' });
+  if (ly.length % 2 === 0) d.push({ id:'even' });
+  return d;
+}
+const DEFECT_TEXT = {
+  noglue:'Между какими-то листами не было клея. Они не склеились и разошлись.',
+  same:'Два соседних листа лежали волокнами в одну сторону. Вдоль волокон древесина легко колется, и лист треснул. Соседние слои кладут крест-накрест.',
+  even:'Слоёв чётное число. Верхний и нижний листы тянут в разные стороны, и лист покоробился. Слоёв должно быть нечётное число: 3, 5, 7.',
+};
+function assembleStep(){
+  PS.step = 'assemble'; flyTo(VIEWS.pressTop, 1.3);
+  hud.innerHTML = meterHTML('ly','Слоёв в пакете');
+  const upd = () => setMeter('ly', PS.layers.length/9, String(PS.layers.length));
+  setPanel({ step:'Шаг 1 из 3 · сборка', title:'Собери пакет из шпона',
+    text:'Бери листы со стопки и клади на плиту пресса. Сам реши, как направить волокна и сколько слоёв положить. Между листами нужен клей: валик мажет верхний лист.',
+    html:`<div class="row"><button type="button" class="btn ghost" id="pr-h">Лист ⟷</button><button type="button" class="btn ghost" id="pr-v">Лист ↕</button><button type="button" class="btn ghost" id="pr-glue">Клей</button></div>
+      <div class="row"><button type="button" class="btn ghost" id="pr-undo">Убрать верхний</button><button type="button" class="btn" id="pr-go">В пресс</button></div>
+      <p class="keys desc">⟷ и ↕ показывают, куда пойдут волокна листа</p>` });
+  upd();
+  return new Promise(res => {
+    $('#pr-h').onclick = () => { if (!PS.busy) addLayer('h').then(upd); };
+    $('#pr-v').onclick = () => { if (!PS.busy) addLayer('v').then(upd); };
+    $('#pr-glue').onclick = () => { if (!PS.busy) glueTop(); };
+    $('#pr-undo').onclick = () => { if (!PS.busy){ removeTop(); upd(); } };
+    $('#pr-go').onclick = () => { if (PS.busy) return; if (PS.layers.length < 3){ toast('Слишком тонко: в фанере минимум три слоя','bad'); return; } res(); };
+  });
+}
+function pressStep(alive){
+  PS.step = 'press'; flyTo(VIEWS.pressWide, 1.3);
+  hud.innerHTML = meterHTML('tp','Температура плит',[68.75,81.25]) + meterHTML('cu','Клей застывает');
+  setMeter('cu',0,'0%');
+  setPanel({ step:'Шаг 2 из 3 · пресс', title:'Склей в горячем прессе',
+    text:'Плиты пресса нагревают, чтобы клей быстрее застыл. Поставь нагрев в зелёную зону, около <b>120 °C</b>, и опусти плиту. Холодно: клей не схватится. Слишком горячо: шпон подгорит.',
+    html:`<div class="slider"><label for="pr-t"><span>Нагрев</span><span id="pr-tv" class="mono">${PS.Tset}°</span></label><input type="range" id="pr-t" min="20" max="160" step="5" value="${PS.Tset}"></div><div class="row"><button type="button" class="btn" id="pr-down">Опустить плиту</button></div>` });
+  const tEl = $('#pr-t'); tEl.addEventListener('input', () => { PS.Tset = +tEl.value; $('#pr-tv').textContent = PS.Tset + '°'; });
+  return new Promise(res => {
+    $('#pr-down').onclick = async () => {
+      $('#pr-down').disabled = true; PS.busy = true;
+      const top = layerY(PS.layers.length-1) + SH/2;
+      loopSet('motor', .25);
+      await tween(1.5, k => setTopY(lerp(TOP_OPEN, top, ease(k)))); if (!alive()) return;
+      loopSet('motor', 0, .3); thud(); PS.pressed = true; PS.step = 'curing';
+      PS.layers.forEach(l => { if (l.gp) l.gp.visible = false; });
+      await until(() => !alive() || PS.cure >= 1); if (!alive()) return;
+      PS.pressed = false; loopSet('steam', 0); tone(784,.15,.08);
+      loopSet('motor', .25);
+      await tween(1.3, k => setTopY(lerp(top, TOP_OPEN, ease(k)))); if (!alive()) return;
+      loopSet('motor', 0, .3); PS.busy = false; res();
+    };
+  });
+}
+async function showDefects(d, alive){
+  PS.step = 'reveal'; flyTo(VIEWS.pressTop, 1.2); hud.innerHTML = '';
+  const ly = PS.layers, topY = layerY(ly.length-1) + SH/2 + .001;
+  const ng = d.find(x => x.id === 'noglue'), same = d.find(x => x.id === 'same'), even = d.find(x => x.id === 'even');
+  crackOv.position.set(PR.x, topY, PR.z); crackOv.rotation.y = 0;
+  if (same){ crack(); crackOv.position.y = topY + (ng ? .07 : 0); }
+  const lifted = ng ? ly.slice(ng.at+1) : [];
+  await tween(1.2, k => {
+    const e = ease(k);
+    if (even) warpSheets(e);
+    if (same) crackOv.material.opacity = e;
+    lifted.forEach((l,j) => { l.mesh.position.y = layerY(ng.at+1+j) + e*.07; l.mesh.position.x = PR.x + e*.06; l.mesh.rotation.z = e*.12; });
+  });
+  if (!alive()) return;
+  toast(d.length === 1 ? 'Лист испорчен' : 'Лист испорчен сразу по нескольким причинам','bad');
+  return new Promise(res => {
+    setPanel({ step:'Неудача', title:'Фанера не получилась', text: d.map(x => DEFECT_TEXT[x.id]).join(' '),
+      html:'<div class="row"><button type="button" class="btn" id="pr-again">Разобрать и собрать заново</button></div>' });
+    panel.classList.remove('mini');
+    $('#pr-again').onclick = () => { warpSheets(0); res(); };
+  });
+}
+async function runPress(){
+  const run = ++RUN; const alive = () => run === RUN;
+  mode = 'press'; $('#result').hidden = true; setHintTags([]); resetPress(true);
+  flyTo(VIEWS.pressWide, 1.6);
+  for (;;){
+    await assembleStep(); if (!alive()) return;
+    await pressStep(alive); if (!alive()) return;
+    const d = analysePly();
+    if (!d.length) break;
+    PS.mistakes += d.length;
+    await showDefects(d, alive); if (!alive()) return;
+    resetPress(false);
+  }
+  // step 3: look at the edge, trim it
+  PS.step = 'edge'; flyTo(VIEWS.pressEdge, 1.5); hud.innerHTML = '';
+  chord(); toast('Фанера склеилась!','ok');
+  await new Promise(res => {
+    setPanel({ step:'Шаг 3 из 3 · торец', title:'Посмотри на торец',
+      text:'На срезе видны все слои. Светлая полоска — лист с волокнами вдоль, тёмная с точками — поперёк: это торцы волокон. Осталось обрезать неровные кромки.',
+      html:'<div class="row"><button type="button" class="btn" id="pr-trim">Обрезать кромки</button></div>' });
+    $('#pr-trim').onclick = res;
+  }); if (!alive()) return;
+  $('#pr-trim').disabled = true;
+  for (let i=0;i<8;i++) spawnChip(V(PR.x + rand(-.38,.38), PLAT + PS.layers.length*SH, PR.z + .29), '#E4C590', .02);
+  burst({ freq:2600, q:1, dur:.5, gain:.3 });
+  await tween(.6, k => PS.layers.forEach(l => { l.mesh.scale.set(1 - .03*k, 1, 1 - .03*k); })); if (!alive()) return;
+  await sleep(.8); if (!alive()) return;
+  const m = PS.mistakes + (PS.scorch ? 1 : 0), stars = starsOf(m);
+  best.press = Math.max(best.press||0, stars); saveBest(); refreshTags(); chord();
+  const nL = PS.layers.length;
+  showResult({ title:'Пресс для фанеры', stars, mistakes:`Испорченных листов: ${PS.mistakes}. ${PS.scorch ? 'Шпон подгорел от перегрева.' : 'Температура была в норме.'} В твоей фанере ${nL} ${nL%10===1&&nL%100!==11?'слой':(nL%10>=2&&nL%10<=4&&(nL%100<12||nL%100>14)?'слоя':'слоёв')}.`,
+    lines:['Фанеру склеивают из листов шпона.','Волокна соседних слоёв перпендикулярны, крест-накрест. Так фанера прочнее и не раскалывается.','Слоёв всегда нечётное число: 3, 5, 7. Наружные листы смотрят в одну сторону, и лист не коробится.','Листы мажут клеем и сжимают в горячем прессе.','На торце фанеры видны её слои.'],
+    again: runPress });
+}
+function updatePress(dt){
+  PS.T += (PS.Tset - PS.T)*Math.min(1, dt*.7);
+  heatMat.emissiveIntensity = clamp((PS.T - 60)/100, 0, 1)*.4;
+  heatLamp.material.emissiveIntensity = PS.T > 60 ? 2 : 0;
+  if (mode !== 'press') return;
+  if (PS.step === 'press' || PS.step === 'curing'){
+    const t = PS.T, okT = t >= 110 && t <= 130;
+    setMeter('tp', t/160, Math.round(t) + ' °C', okT ? 'var(--ok)' : (t > 140 ? 'var(--bad)' : ''));
+  }
+  if (PS.step === 'curing'){
+    const t = PS.T;
+    if (t >= 105 && t <= 145){ PS.cure = Math.min(1, PS.cure + dt/4.5); loopSet('steam', .07); } else loopSet('steam', 0);
+    if (t > 145){ PS.hot += dt; if (PS.hot > 1 && !PS.scorch){ PS.scorch = true; toast('Перегрев! Шпон подгорает','bad');
+      [PS.layers[0], PS.layers[PS.layers.length-1]].forEach(l => { l.mesh.material = l.mesh.material.map(mm => { const c = mm.clone(); c.color.multiplyScalar(.55); return c; }); }); } }
+    if (t < 105){ PS.cold += dt; if (PS.cold > 3){ PS.cold = 0; toast('Холодно: клей не схватывается. Прибавь нагрев'); } }
+    setMeter('cu', PS.cure, Math.round(PS.cure*100) + '%', 'var(--ok)');
+  }
+}
+
+/* ================= SAWMILL (лесопильная рама) ================= */
+renderer.localClippingEnabled = true;
+const MX = -.9, MZ = -2.95, LY = .55, LR = .15, LL = 1.0;
+const MILL_START = MX - LL/2 - .4, MILL_END = MX + LL/2 + .12;
+const millGrp = new THREE.Group(); scene.add(millGrp);
+const millPaint = mat('#8E3B2E',.5,.3), millDark = mat('#3A2A26',.55,.3);
+{
+  const base = rbox(.62,.2,1.05,millDark,.03); base.position.set(MX,.1,MZ); millGrp.add(base);
+  for (const s of [-1,1]){
+    const post = rbox(.14,1.75,.14,millPaint,.02); post.position.set(MX,.875,MZ + s*.46); millGrp.add(post);
+    const rail = box(1.35,.05,.05,steelDark); rail.position.set(MX - .95,.33,MZ + s*.26); millGrp.add(rail);
+    const rail2 = rail.clone(); rail2.position.x = MX + .92; millGrp.add(rail2);
+  }
+  const beam = rbox(.34,.18,1.1,millPaint,.03); beam.position.set(MX,1.82,MZ); millGrp.add(beam);
+  const stripe = new THREE.Mesh(new THREE.PlaneGeometry(.9,.07), new THREE.MeshStandardMaterial({ map:stripeTex, roughness:.6 }));
+  stripe.rotation.y = -Math.PI/2; stripe.position.set(MX - .172,1.82,MZ); millGrp.add(stripe);
+  for (let x = MX - 1.55; x <= MX - .3; x += .25) for (const side of [0]){ const r = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.55,18), steel)); r.rotation.x = Math.PI/2; r.position.set(x, LY - LR - .045, MZ); millGrp.add(r); }
+  for (let x = MX + .3; x <= MX + 1.55; x += .25){ const r = shadowy(new THREE.Mesh(new THREE.CylinderGeometry(.045,.045,.55,18), steel)); r.rotation.x = Math.PI/2; r.position.set(x, LY - LR - .045, MZ); millGrp.add(r); }
+  for (const x of [MX - 1.5, MX - .55, MX + .55, MX + 1.5]) for (const s of [-1,1]){ const l = box(.05,.33,.05,steelDark); l.position.set(x,.165,MZ + s*.26); millGrp.add(l); }
+  const motor = rbox(.32,.3,.3,millDark,.03); motor.position.set(MX + .35,.25,MZ - .74); millGrp.add(motor);
+}
+const flywheel = new THREE.Group(); flywheel.position.set(MX,.42,MZ - .62); millGrp.add(flywheel);
+{
+  const rim = shadowy(new THREE.Mesh(new THREE.TorusGeometry(.26,.035,10,40), millPaint)); flywheel.add(rim);
+  for (let i=0;i<5;i++){ const sp = box(.03,.5,.02,millDark); sp.rotation.z = i/5*Math.PI; flywheel.add(sp); }
+  const hub = new THREE.Mesh(new THREE.CylinderGeometry(.05,.05,.06,18), brass); hub.rotation.x = Math.PI/2; flywheel.add(hub);
+  const pin = new THREE.Mesh(new THREE.CylinderGeometry(.02,.02,.08,10), brass); pin.rotation.x = Math.PI/2; pin.position.set(.18,0,-.03); flywheel.add(pin);
+}
+// sash with the saw blades: moves up and down
+const sash = new THREE.Group(); sash.position.set(MX,0,MZ); millGrp.add(sash);
+{
+  for (const s of [-1,1]){ const bar = box(.07,1.05,.05,steelDark); bar.position.set(0,.72,s*.36); sash.add(bar); }
+  for (const y of [.22,1.22]){ const bar = box(.07,.06,.77,steelDark); bar.position.set(0,y,0); sash.add(bar); }
+}
+const BLADE_U = [-.125,-.10,-.075,-.02,.075,.10,.125];
+const blades = BLADE_U.map(u => { const b = box(.05,.97,.003,mat('#C7CED6',.25,.9)); b.position.set(0,.72,-u); b.visible = false; sash.add(b); return { u, m:b }; });
+function showBlades(list){ blades.forEach(b => b.m.visible = list.includes(b.u)); }
+
+// pallets for the sorted lumber, each with a sign
+const KIND = {
+  gorb:{ name:'Горбыль', many:'Горбыль', x:-2.3 },
+  doska:{ name:'Доска', many:'Доски', x:-1.25 },
+  brusok:{ name:'Брусок', many:'Бруски', x:-.2 },
+  brus:{ name:'Брус', many:'Брус', x:.85 },
+};
+const PAL_Z = -1.75;
+Object.entries(KIND).forEach(([k,o]) => {
+  const p = box(1.05,.1,.42, mat('#9C7448',.85)); p.position.set(o.x,.05,PAL_Z); millGrp.add(p);
+  const post = box(.03,.5,.03,oak); post.position.set(o.x - .48,.3,PAL_Z - .23); millGrp.add(post);
+  const sign = new THREE.Mesh(new THREE.PlaneGeometry(.36,.12), new THREE.MeshStandardMaterial({ map:canvasTex(384,128,(g,w,h)=>{ g.fillStyle='#F2E6CC'; g.fillRect(0,0,w,h); g.strokeStyle='#3A281B'; g.lineWidth=8; g.strokeRect(4,4,w-8,h-8); g.fillStyle='#22180F'; g.font='800 58px Nunito, Arial, sans-serif'; g.textAlign='center'; g.textBaseline='middle'; g.fillText(o.many.toUpperCase(), w/2, h/2+3); }), roughness:.8 }));
+  sign.position.set(o.x - .48,.58,PAL_Z - .21); millGrp.add(sign);
+  o.h = .1; o.n = 0;
+});
+
+// cross-sections: a circle clipped by straight cuts, extruded along the log
+function clipPoly(pts, a, b, c){ // keep a*u + b*v + c >= 0
+  const out = [];
+  for (let i=0;i<pts.length;i++){
+    const P = pts[i], Q = pts[(i+1)%pts.length], dp = a*P[0] + b*P[1] + c, dq = a*Q[0] + b*Q[1] + c;
+    if (dp >= 0) out.push(P);
+    if ((dp >= 0) !== (dq >= 0)){ const t = dp/(dp - dq); out.push([P[0] + (Q[0]-P[0])*t, P[1] + (Q[1]-P[1])*t]); }
+  }
+  return out;
+}
+function region(uMin, uMax, vMin=-1, vMax=1){
+  let pts = []; for (let i=0;i<96;i++){ const a = i/96*Math.PI*2; pts.push([Math.cos(a)*LR, Math.sin(a)*LR]); }
+  pts = clipPoly(pts, 1,0,-uMin); pts = clipPoly(pts, -1,0,uMax); pts = clipPoly(pts, 0,1,-vMin); pts = clipPoly(pts, 0,-1,vMax);
+  return pts;
+}
+const endTexC = endTex.clone(); endTexC.repeat.set(1/(2*LR), 1/(2*LR)); endTexC.offset.set(.5,.5); endTexC.needsUpdate = true;
+const planeIn = new THREE.Plane(new THREE.Vector3(-1,0,0), MX), planeOut = new THREE.Plane(new THREE.Vector3(1,0,0), -MX);
+const mkMats = clip => [new THREE.MeshStandardMaterial({ map:endTexC, roughness:.75, envMapIntensity:.3, clippingPlanes:clip, clipShadows:true }),
+                        new THREE.MeshStandardMaterial({ vertexColors:true, roughness:.85, envMapIntensity:.3, clippingPlanes:clip, clipShadows:true })];
+const M_IN = mkMats([planeIn]), M_OUT = mkMats([planeOut]), M_FREE = mkMats(null);
+const barkC = new THREE.Color('#4A3322'), woodC = new THREE.Color('#E3C590');
+function logMesh(pts, mats){
+  const g = new THREE.ExtrudeGeometry(new THREE.Shape(pts.map(([u,v]) => new THREE.Vector2(u,v))), { depth:LL, bevelEnabled:false, steps:1, curveSegments:1 });
+  g.translate(0,0,-LL/2); g.rotateY(Math.PI/2); // shape u -> world -z, v -> y, length along x
+  const p = g.attributes.position.array, col = new Float32Array(p.length);
+  for (let i=0;i<p.length;i+=9){
+    const cy = (p[i+1] + p[i+4] + p[i+7])/3, cz = (p[i+2] + p[i+5] + p[i+8])/3;
+    const c = Math.hypot(cy, cz) > LR*.965 ? barkC : woodC;
+    for (let k=0;k<3;k++){ col[i+k*3] = c.r; col[i+k*3+1] = c.g; col[i+k*3+2] = c.b; }
+  }
+  g.setAttribute('color', new THREE.BufferAttribute(col,3));
+  return shadowy(new THREE.Mesh(g, mats));
+}
+const logGroup = new THREE.Group(); scene.add(logGroup);
+const M = { on:false, feeding:false, hold:false, phase:0, objs:[], pieces:[], unsplit:null, mistakes:0, dustT:0 };
+const KERF = .0015;
+function spec(kind, uMin, uMax){ return { kind, t:Math.round((uMax - uMin)*1000), w:150, uMin, uMax }; }
+const PASS1 = [spec('gorb',-1,-.075), spec('cant',-.075,.075), spec('gorb',.075,1)];
+const PASS2 = [spec('gorb',-1,-.125), spec('doska',-.125,-.10), spec('brusok',-.10,-.02), spec('brus',-.02,.10), spec('doska',.10,.125), spec('gorb',.125,1)];
+function track(m){ M.objs.push(m); return m; }
+function resetMill(){
+  M.objs.forEach(o => o.parent && o.parent.remove(o)); M.objs = []; M.pieces = []; M.unsplit = null;
+  logGroup.position.set(MILL_START, LY, MZ); logGroup.rotation.set(0,0,0);
+  Object.values(KIND).forEach(o => { o.h = .1; o.n = 0; });
+  Object.assign(M, { on:false, feeding:false, hold:false, mistakes:0 });
+  showBlades([]);
+}
+function buildPass(list, vLim){
+  M.unsplit = track(logMesh(region(-1, 1, -vLim, vLim), M_IN)); logGroup.add(M.unsplit);
+  M.pieces = list.map(sp => {
+    const lo = sp.uMin === -1 ? -1 : sp.uMin + KERF, hi = sp.uMax === 1 ? 1 : sp.uMax - KERF;
+    const m = track(logMesh(region(lo, hi, -vLim, vLim), M_OUT)); logGroup.add(m); m.userData.spec = sp; return m;
+  });
+  showBlades(list.slice(1).map(sp => sp.uMin));
+}
+function feedPass(alive, step, title, text){
+  hud.innerHTML = meterHTML('mp','Распилено');
+  setPanel({ step, title, text, html:'<div class="row"><button type="button" class="btn hold" id="m-feed">Подавать бревно</button></div><p class="keys">Держи кнопку или <kbd>Пробел</kbd></p>' });
+  bindHold($('#m-feed'), v => M.hold = v);
+  return until(() => !alive() || logGroup.position.x >= MILL_END);
+}
+const SORT = V(.35,.95,-2.4);
+async function toPallet(m, kind, alive){
+  const o = KIND[kind]; scene.attach(m); m.material = M_FREE;
+  const sp = m.userData.spec, th = Math.max(.02, Math.min(.08, (Math.min(sp.uMax, LR) - Math.max(sp.uMin, -LR)) || .05));
+  const from = m.position.clone(), q0 = m.quaternion.clone();
+  const to = V(o.x, o.h + th/2, PAL_Z + ((o.n % 3) - 1)*.12), q1 = new THREE.Quaternion().setFromEuler(new THREE.Euler(Math.PI/2, 0, 0));
+  o.h += th*.9; o.n++;
+  await tween(.9, k => { const e = ease(k); m.position.lerpVectors(from, to, e); m.position.y += Math.sin(Math.PI*k)*.5; m.quaternion.slerpQuaternions(q0, q1, e); });
+  if (alive()) burst({ freq:260, q:.6, dur:.12, gain:.3, type:'lowpass' });
+}
+function sectionSVG(sp){
+  const k = .55, W = 220, H = 150, cx = W/2, cy = H/2 - 6;
+  if (sp.kind === 'gorb'){
+    return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Сечение горбыля: одна сторона ровная, другая круглая" class="sec" style="width:100%;max-width:240px;height:auto">
+      <path d="M ${cx-14} ${cy-55} L ${cx-14} ${cy+55} A 82 82 0 0 0 ${cx-14} ${cy-55} Z" fill="#E3C590" stroke="#F3EEE3" stroke-width="2"/>
+      <path d="M ${cx-14} ${cy+55} A 82 82 0 0 0 ${cx-14} ${cy-55}" fill="none" stroke="#6B4423" stroke-width="6"/>
+      <text x="${cx-24}" y="${cy+4}" text-anchor="end" font-family="Nunito, sans-serif" font-size="13" font-weight="800" fill="#AEB6C8">пропил</text>
+      <text x="${cx+40}" y="${H-6}" text-anchor="middle" font-family="Nunito, sans-serif" font-size="13" font-weight="800" fill="#AEB6C8">кора</text></svg>`;
+  }
+  const w = sp.t*k, h = sp.w*k, x = cx - w/2, y = cy - h/2;
+  return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Сечение ${sp.t} на ${sp.w} миллиметров" class="sec" style="width:100%;max-width:240px;height:auto">
+    <rect x="${x}" y="${y}" width="${w}" height="${h}" fill="#E3C590" stroke="#F3EEE3" stroke-width="2"/>
+    <line x1="${x}" y1="${y+h+12}" x2="${x+w}" y2="${y+h+12}" stroke="#F2B705" stroke-width="2"/>
+    <text x="${cx}" y="${y+h+28}" text-anchor="middle" font-family="PT Mono, monospace" font-size="14" font-weight="700" fill="#F3EEE3">${sp.t} мм</text>
+    <line x1="${x+w+12}" y1="${y}" x2="${x+w+12}" y2="${y+h}" stroke="#F2B705" stroke-width="2"/>
+    <text x="${x+w+18}" y="${cy+5}" font-family="PT Mono, monospace" font-size="14" font-weight="700" fill="#F3EEE3">${sp.w} мм</text></svg>`;
+}
+function millWhy(sp){
+  const t = sp.t, w = sp.w;
+  if (sp.kind === 'gorb') return 'Одна сторона пропилена, другая осталась круглой, с корой. Это <b>горбыль</b>, боковая часть бревна.';
+  if (sp.kind === 'brus') return `И толщина ${t} мм, и ширина ${w} мм больше 100 мм. Это <b>брус</b>.`;
+  if (sp.kind === 'brusok') return `Толщина ${t} мм, это не больше 100. Ширина ${w} мм не больше двух толщин: 2 × ${t} = ${2*t}. Это <b>брусок</b>.`;
+  return `Толщина ${t} мм, это не больше 100. Ширина ${w} мм больше двух толщин: 2 × ${t} = ${2*t}. Это <b>доска</b>.`;
+}
+async function runMill(){
+  const run = ++RUN; const alive = () => run === RUN;
+  mode = 'mill'; $('#result').hidden = true; setHintTags([]); resetMill();
+  M.on = true; loopSet('motor', .3);
+  flyTo(VIEWS.millWide, 1.6);
+  buildPass(PASS1, 1);
+  await feedPass(alive, 'Шаг 1 из 3 · первый проход', 'Распили бревно',
+    'Это лесопильная рама: пилы ходят вверх-вниз, а бревно подаётся сквозь них. Держи кнопку, и бревно поедет к пилам.'); if (!alive()) return;
+  M.hold = false; hud.innerHTML = '';
+  // the two side slabs fall away; what is left is a cant with two flat sides
+  const [s1, cant, s2] = M.pieces;
+  [s1, cant, s2].forEach(m => m.material = M_FREE);
+  toast('Отлетели два горбыля', 'ok');
+  setPanel({ step:'Шаг 1 из 3 · первый проход', title:'Горбыль и двухкантный брус',
+    text:'По бокам отпали два <b>горбыля</b>: одна сторона у них пропилена, другая круглая, с корой. Посередине остался брус с двумя ровными сторонами. Его повернут на 90° и пропустят через пилы ещё раз.',
+    html:'<div class="row"><button type="button" class="btn" id="m-next">Повернуть брус и подать снова</button></div>' });
+  const nextClick = new Promise(res => $('#m-next').onclick = res);
+  await Promise.all([toPallet(s1,'gorb',alive), sleep(.25).then(() => alive() && toPallet(s2,'gorb',alive)), nextClick]); if (!alive()) return;
+  $('#m-next').disabled = true;
+  // swap the cant for the second-pass log, shown turned back as it was, and roll it home
+  logGroup.remove(cant);
+  const vLim = .075;
+  buildPass(PASS2, vLim);
+  M.unsplit.material = M_FREE; M.pieces.forEach(m => m.visible = false);
+  M.unsplit.rotation.x = -Math.PI/2;
+  await tween(1.6, k => { logGroup.position.x = lerp(MILL_END, MILL_START, ease(k)); }); if (!alive()) return;
+  burst({ freq:300, q:.6, dur:.15, gain:.3, type:'lowpass' });
+  await tween(.8, k => { M.unsplit.rotation.x = -Math.PI/2*(1 - ease(k)); }); if (!alive()) return;
+  thud(); M.unsplit.material = M_IN; M.pieces.forEach(m => m.visible = true);
+  await feedPass(alive, 'Шаг 2 из 3 · второй проход', 'Распили брус',
+    'Теперь в раме пять пил. Они разрежут брус на доски, брусок, брус и ещё два горбыля.'); if (!alive()) return;
+  M.hold = false; hud.innerHTML = ''; M.pieces.forEach(m => m.material = M_FREE);
+  await tween(.8, k => M.pieces.forEach((m,i) => { m.position.z = (i - 2.5)*.05*ease(k); })); if (!alive()) return;
+  // step 3: sort
+  M.on = false; loopSet('motor', 0, .4); loopSet('saw', 0, .1);
+  flyTo(VIEWS.millSort, 1.5);
+  const list = M.pieces.slice(); for (let i=list.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [list[i],list[j]] = [list[j],list[i]]; }
+  for (let i=0;i<list.length;i++){
+    const m = list[i], sp = m.userData.spec; scene.attach(m);
+    const from = m.position.clone(), q0 = m.quaternion.clone(), q1 = new THREE.Quaternion();
+    await tween(.8, k => { const e = ease(k); m.position.lerpVectors(from, SORT, e); m.position.y += Math.sin(Math.PI*k)*.2; m.quaternion.slerpQuaternions(q0, q1, e); }); if (!alive()) return;
+    hud.innerHTML = meterHTML('so','Разложено'); setMeter('so', i/list.length, `${i} / ${list.length}`);
+    const dims = sp.kind === 'gorb' ? 'Посмотри на торец: какие у детали стороны?' : `Толщина <b>${sp.t} мм</b>, ширина <b>${sp.w} мм</b>.`;
+    const pick = await new Promise(res => {
+      setPanel({ step:`Шаг 3 из 3 · сортировка · ${i+1} из ${list.length}`, title:'Что это за пиломатериал?', text:'Определи по торцу и размерам, на какой поддон положить деталь.',
+        html:`<p>${dims}</p>${sectionSVG(sp)}<div class="row kinds">${Object.entries(KIND).map(([k,o]) => `<button type="button" class="btn ghost" data-k="${k}">${o.name}</button>`).join('')}</div>` });
+      panel.querySelectorAll('[data-k]').forEach(b => b.onclick = () => { panel.querySelectorAll('[data-k]').forEach(x => x.disabled = true); res(b.dataset.k); });
+    }); if (!alive()) return;
+    if (pick === sp.kind){ tone(784,.12,.08); toast(`Верно: ${KIND[sp.kind].name.toLowerCase()}`, 'ok'); }
+    else {
+      M.mistakes++; burst({ freq:1200, q:2, dur:.12, gain:.25 });
+      await new Promise(res => {
+        setPanel({ step:`Шаг 3 из 3 · сортировка · ${i+1} из ${list.length}`, title:`Это не ${KIND[pick].name.toLowerCase()}`, text:millWhy(sp),
+          html:`${sectionSVG(sp)}<div class="row"><button type="button" class="btn" id="m-ok">Понятно</button></div>` });
+        panel.classList.remove('mini');
+        $('#m-ok').onclick = res;
+      }); if (!alive()) return;
+    }
+    await toPallet(m, sp.kind, alive); if (!alive()) return;
+  }
+  setMeter('so', 1, `${list.length} / ${list.length}`);
+  await sleep(.5); if (!alive()) return;
+  const stars = starsOf(M.mistakes); best.mill = Math.max(best.mill||0, stars); saveBest(); refreshTags(); chord();
+  showResult({ title:'Пилорама', stars, mistakes:`Ошибок при сортировке: ${M.mistakes}.`,
+    lines:['Доска: толщина до 100 мм, ширина больше двух толщин.','Брусок: толщина до 100 мм, ширина не больше двух толщин.','Брус: и толщина, и ширина больше 100 мм.','Горбыль: боковая часть бревна, одна сторона пропилена, другая круглая.','На лесопильной раме бревно пилят сразу несколькими пилами.'],
+    again: runMill });
+}
+function updateMill(dt){
+  if (!M.on){ return; }
+  const feed = mode === 'mill' && (M.hold || keys.Space) && logGroup.position.x < MILL_END;
+  M.phase += dt*(feed ? 16 : 9);
+  sash.position.y = Math.sin(M.phase)*.05; flywheel.rotation.z = -M.phase;
+  if (feed){
+    logGroup.position.x = Math.min(MILL_END, logGroup.position.x + dt*.24);
+    const front = logGroup.position.x + LL/2, back = logGroup.position.x - LL/2;
+    if (front > MX && back < MX){ M.dustT += dt; if (M.dustT > .05){ M.dustT = 0; spawnChip(V(MX + .03, LY - .12, MZ + rand(-.13,.13)), '#EAD5A6', .018); } }
+  }
+  loopSet('saw', feed ? .5*(.3 + .7*Math.abs(Math.sin(M.phase))) : .06, .02);
+  const prog = clamp((logGroup.position.x - MILL_START)/(MILL_END - MILL_START), 0, 1);
+  if (document.getElementById('mp-b')) setMeter('mp', prog, Math.round(prog*100) + '%');
+}
+VIEWS.millWide = { pos:[MX+1.35, 2.05, MZ+2.0], target:[MX-.25, .55, MZ-.05], hfov:70 };
+VIEWS.millSort = { pos:[SORT.x+.9, SORT.y+.3, SORT.z+.75], target:[SORT.x+.05, SORT.y-.05, SORT.z], hfov:46 };
+
+/* ================= SANDING station ================= */
+const SD = V(4.6,0,-2.6), SBY = .905, BL = .9, BW = .3;
+const sandGrp = new THREE.Group(); scene.add(sandGrp);
+{
+  const top = rbox(1.25,.07,.7, new THREE.MeshStandardMaterial({ map:canvasTex(512,256,(g,w,h)=>{ g.fillStyle='#8E6240'; g.fillRect(0,0,w,h); grainLines(g,0,0,w,h,'50,26,10',50,3); }), roughness:.7, envMapIntensity:.3 }),.015);
+  top.position.set(SD.x,.835,SD.z); sandGrp.add(top);
+  for (const x of [-.55,.55]) for (const z of [-.28,.28]){ const l = box(.07,.8,.07,oak); l.position.set(SD.x+x,.4,SD.z+z); sandGrp.add(l); }
+  const stop = box(.04,.04,.36,oak); stop.position.set(SD.x - BL/2 - .03,.89,SD.z); sandGrp.add(stop);
+  const stop2 = stop.clone(); stop2.position.x = SD.x + BL/2 + .03; sandGrp.add(stop2);
+}
+// the board: base wood + an overlay that shows how rough each spot still is
+const SGX = 60, SGY = 20;
+const sGrid = new Float32Array(SGX*SGY);
+const roughPat = document.createElement('canvas'); roughPat.width = 960; roughPat.height = 320;
+{ const g = roughPat.getContext('2d');
+  g.fillStyle = 'rgba(118,80,44,.35)'; g.fillRect(0,0,960,320);
+  for (let i=0;i<900;i++){ g.strokeStyle = `rgba(${Math.random()<.5?'70,42,18':'235,205,150'},${rand(.35,.85).toFixed(2)})`; g.lineWidth = rand(1,3.2); const x = rand(0,960), y = rand(0,320), l = rand(8,46); g.beginPath(); g.moveTo(x,y); g.lineTo(x+l, y+rand(-4,4)); g.stroke(); }
+  for (let x=-200;x<1100;x+=rand(22,38)){ g.strokeStyle = `rgba(80,50,22,${rand(.25,.5).toFixed(2)})`; g.lineWidth = rand(2,5); g.beginPath(); g.moveTo(x,0); g.quadraticCurveTo(x+40,160,x+rand(60,110),320); g.stroke(); }
+  for (let i=0;i<260;i++){ g.fillStyle = `rgba(60,36,14,${rand(.3,.7).toFixed(2)})`; g.fillRect(rand(0,960),rand(0,320),rand(1,4),rand(1,3)); }
+}
+const sOv = document.createElement('canvas'); sOv.width = 960; sOv.height = 320; const sg = sOv.getContext('2d');
+const sOvTex = new THREE.CanvasTexture(sOv); sOvTex.colorSpace = THREE.SRGBColorSpace; sOvTex.anisotropy = maxAniso;
+const boardBase = canvasTex(960,320,(g,w,h)=>{ g.fillStyle='#E7C994'; g.fillRect(0,0,w,h); grainLines(g,0,0,w,h,'140,92,44',120,4); });
+const sBoard = shadowy(new THREE.Mesh(new THREE.BoxGeometry(BL,.03,BW), [mat('#D7B47E',.8),mat('#D7B47E',.8),new THREE.MeshStandardMaterial({ map:boardBase, roughness:.75, envMapIntensity:.35 }),mat('#D7B47E',.8),mat('#D7B47E',.8),mat('#D7B47E',.8)]));
+sBoard.position.set(SD.x, SBY - .015, SD.z); sandGrp.add(sBoard);
+const sOvMesh = new THREE.Mesh(new THREE.PlaneGeometry(BL,BW).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ map:sOvTex, transparent:true, roughness:.95, depthWrite:false, envMapIntensity:.2 }));
+sOvMesh.position.set(SD.x, SBY + .0012, SD.z); sOvMesh.receiveShadow = true; sandGrp.add(sOvMesh);
+const sDirty = new Set();
+function drawCell(i){
+  const cx = i % SGX, cy = (i / SGX) | 0, w = 960/SGX, h = 320/SGY, x = cx*w, y = cy*h;
+  sg.clearRect(x,y,w,h); const a = clamp(sGrid[i],0,1);
+  if (a > .01){ sg.globalAlpha = Math.min(1, a*1.15); sg.drawImage(roughPat, x,y,w,h, x,y,w,h); sg.globalAlpha = 1; }
+}
+function redrawBoard(){ for (let i=0;i<sGrid.length;i++) drawCell(i); sOvTex.needsUpdate = true; }
+
+// sandpaper sheets on a little rack, labelled
+const GRITS = [
+  { n:40,  f:.60, r:50, s:10 }, { n:80,  f:.38, r:40, s:7.5 }, { n:120, f:.24, r:32, s:5.5 },
+  { n:180, f:.13, r:24, s:4 },  { n:240, f:.05, r:16, s:3 },
+];
+function gritTex(n, s){ return canvasTex(256,180,(g,w,h)=>{
+  g.fillStyle = '#9C8466'; g.fillRect(0,0,w,h);
+  for (let i=0;i<Math.round(9000/(s*s)); i++){ g.fillStyle = `rgba(${Math.random()<.5?'40,30,22':'225,210,185'},${rand(.5,.9).toFixed(2)})`; const r = rand(s*.35,s*.6); g.beginPath(); g.arc(rand(0,w),rand(0,h),r,0,7); g.fill(); }
+  g.fillStyle = '#F3EEE3'; g.fillRect(w/2-58,h/2-30,116,60); g.strokeStyle = '#222'; g.lineWidth = 3; g.strokeRect(w/2-58,h/2-30,116,60);
+  g.fillStyle = '#1A1A1A'; g.font = '800 40px PT Mono, monospace'; g.textAlign = 'center'; g.textBaseline = 'middle'; g.fillText('P'+n, w/2, h/2+2);
+}); }
+GRITS.forEach((G,i) => {
+  G.tex = gritTex(G.n, G.s);
+  const sheet = new THREE.Mesh(new THREE.PlaneGeometry(.15,.105).rotateX(-Math.PI/2), new THREE.MeshStandardMaterial({ map:G.tex, roughness:.95 }));
+  sheet.position.set(SD.x - .48 + i*.24, .874, SD.z + .275); sheet.rotation.y = rand(-.06,.06); sandGrp.add(sheet); G.sheet = sheet;
+});
+// sanding block that follows the pointer
+const blockG = new THREE.Group(); scene.add(blockG); blockG.visible = false;
+const blockPaper = new THREE.Mesh(new THREE.BoxGeometry(.13,.004,.075), new THREE.MeshStandardMaterial({ color:'#9C8466', roughness:.95 }));
+const blockWood = rbox(.12,.035,.065, mat('#C9884A',.6),.01); blockWood.position.y = .02;
+const blockGrip = rbox(.08,.025,.045, mat('#23262C',.7),.01); blockGrip.position.y = .048;
+blockG.add(blockPaper, blockWood, blockGrip);
+
+const S = { grit:-1, used:[], cross:0, crossWarned:0, rescratch:0, jumpWarned:false, stroke:null, done:false, last:null, moveAmt:0, quizMiss:0 };
+function resetSand(){
+  for (let i=0;i<sGrid.length;i++) sGrid[i] = rand(.88,1);
+  redrawBoard();
+  Object.assign(S, { grit:-1, used:[], cross:0, crossWarned:0, rescratch:0, jumpWarned:false, stroke:null, done:false, last:null, moveAmt:0, quizMiss:0 });
+  blockG.visible = false; GRITS.forEach(G => G.sheet.visible = true);
+}
+function smoothShare(){ let n = 0; for (let i=0;i<sGrid.length;i++) if (sGrid[i] < .08) n++; return n/sGrid.length; }
+function avgRough(){ let a = 0; for (let i=0;i<sGrid.length;i++) a += sGrid[i]; return a/sGrid.length; }
+function pickGrit(i){
+  const prev = S.grit;
+  if (prev >= 0 && i < prev){ S.rescratch++; toast('Шкурка крупнее прежней снова оставит глубокие царапины','bad'); }
+  else if (prev >= 0 && i > prev + 2 && !S.jumpWarned){ S.jumpWarned = true; toast('Большой скачок. Мелкая шкурка долго снимает глубокие царапины от крупной'); }
+  else if (prev < 0 && i >= 3){ toast('Мелкой шкуркой грубую доску шлифовать очень долго'); }
+  S.grit = i; if (!S.used.includes(GRITS[i].n)) S.used.push(GRITS[i].n);
+  blockPaper.material.map = GRITS[i].tex; blockPaper.material.color.set('#ffffff'); blockPaper.material.needsUpdate = true;
+  GRITS.forEach((G,k) => G.sheet.visible = k !== i);
+  tone(520 + i*60,.06,.05);
+  panel.querySelectorAll('[data-g]').forEach(b => b.classList.toggle('on', +b.dataset.g === i));
+  $('#sd-cur') && ($('#sd-cur').textContent = 'В руке: P' + GRITS[i].n);
+}
+function boardUV(e){
+  setNdc(e); ray.setFromCamera(ndc, camera);
+  const h = ray.intersectObject(sOvMesh, false)[0];
+  return h ? { u:h.uv.x, v:1 - h.uv.y, p:h.point } : null;
+}
+function sandDown(e){
+  if (S.grit < 0){ toast('Сначала выбери шкурку'); return; }
+  const h = boardUV(e); if (!h) return;
+  S.stroke = { du:0, dv:0 }; S.last = h; placeBlock(h);
+}
+function placeBlock(h){ blockG.visible = true; blockG.position.set(h.p.x, SBY + .003, h.p.z); }
+const sandQ = [];
+function sandMove(e){
+  if (S.grit < 0 || S.done) return;
+  const list = e.getCoalescedEvents ? e.getCoalescedEvents() : [];
+  (list.length ? list : [e]).forEach(ev => sandQ.push({ clientX:ev.clientX, clientY:ev.clientY }));
+  if (sandQ.length > 24) sandQ.splice(0, sandQ.length - 24);
+}
+function sandProcess(e){
+  const h = boardUV(e);
+  if (!h){ S.last = null; return; }
+  if (!S.stroke) S.stroke = { du:0, dv:0 };
+  if (!S.last){ S.last = h; placeBlock(h); return; }
+  const du = h.u - S.last.u, dv = h.v - S.last.v;
+  const dist = Math.hypot(du*BL, dv*BW);
+  S.stroke.du += Math.abs(du*BL); S.stroke.dv += Math.abs(dv*BW);
+  const across = S.stroke.dv > .06 && S.stroke.dv > S.stroke.du*1.3;
+  if (across && S.crossWarned < 99){ if (!S.stroke.warned){ S.stroke.warned = true; S.cross++; toast('Шлифуй вдоль волокон, а не поперёк: поперёк остаются царапины','bad'); } }
+  const G = GRITS[S.grit], floor = across ? Math.min(1, G.f*1.8 + .08) : G.f;
+  const steps = Math.max(1, Math.ceil(dist/.01));
+  let changed = false;
+  for (let k=1;k<=steps;k++){
+    const u = S.last.u + du*k/steps, v = S.last.v + dv*k/steps, seg = dist/steps;
+    const cu = u*SGX, cv = v*SGY, ru = .06*SGX, rv = .2*SGY;
+    for (let y=Math.max(0,Math.floor(cv-rv)); y<=Math.min(SGY-1,Math.ceil(cv+rv)); y++)
+      for (let x=Math.max(0,Math.floor(cu-ru)); x<=Math.min(SGX-1,Math.ceil(cu+ru)); x++){
+        const q = ((x+.5-cu)/ru)**2 + ((y+.5-cv)/rv)**2; if (q > 1) continue;
+        const i = y*SGX + x, d = sGrid[i], amt = G.r*seg*.9;
+        let nd = d > floor ? floor + (d - floor)*Math.exp(-amt*1.2) : d + (floor - d)*(1 - Math.exp(-amt*.6));
+        if (Math.abs(nd - d) > .002){ sGrid[i] = nd; sDirty.add(i); changed = true; }
+      }
+  }
+
+  S.moveAmt += dist; S.last = h; placeBlock(h);
+  if (Math.random() < Math.min(1, dist*25)) spawnChip(V(h.p.x, SBY + .01, h.p.z), '#EAD5A6', .012);
+}
+function sandUp(){ flushSand(); S.stroke = null; S.last = null; }
+function flushSand(){
+  if (!sandQ.length) return;
+  const pts = sandQ.splice(0);
+  // thin out: at most 6 samples per frame, always keeping the last one
+  const step = Math.max(1, Math.ceil(pts.length/6));
+  for (let i=0;i<pts.length;i+=step) sandProcess(pts[i]);
+  if ((pts.length-1) % step) sandProcess(pts[pts.length-1]);
+  if (sDirty.size){ sDirty.forEach(drawCell); sDirty.clear(); sOvTex.needsUpdate = true; }
+}
+async function runSand(){
+  const run = ++RUN; const alive = () => run === RUN;
+  mode = 'sand'; $('#result').hidden = true; setHintTags([]); resetSand();
+  flyTo(VIEWS.sandTop, 1.6);
+  hud.innerHTML = meterHTML('sm','Гладкая поверхность') + meterHTML('rg','Неровности');
+  setPanel({ step:'Шаг 1 из 2 · шлифовка', title:'Отшлифуй доску',
+    text:'После пилы доска шершавая. Выбери шкурку и води бруском по доске, зажав кнопку. Шлифуют <b>вдоль волокон</b>, от крупной шкурки к мелкой. Доска готова, когда станет гладкой почти вся.',
+    html:`<div class="row grits">${GRITS.map((G,i) => `<button type="button" class="btn ghost" data-g="${i}">P${G.n}</button>`).join('')}</div><p class="keys" id="sd-cur">Шкурка не выбрана</p>` });
+  panel.querySelectorAll('[data-g]').forEach(b => b.onclick = () => pickGrit(+b.dataset.g));
+  await until(() => !alive() || smoothShare() >= .9); if (!alive()) return;
+  S.done = true; S.stroke = null; loopSet('cut', 0, .1); blockG.visible = false;
+  for (let i=0;i<sGrid.length;i++) sGrid[i] = Math.min(sGrid[i], .03); redrawBoard();
+  chord(); toast('Доска гладкая!','ok');
+  // step 2: what the number means
+  const QS = [
+    ['Сколько отверстий на 1 дюйм в сите, через которое просеивали зёрна. Чем больше число, тем мельче зерно', true],
+    ['Размер одного зерна в миллиметрах. Чем больше число, тем крупнее зерно', false],
+    ['Сколько листов в упаковке', false],
+    ['Сколько раз можно использовать лист', false]];
+  for (let i=QS.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [QS[i],QS[j]] = [QS[j],QS[i]]; }
+  hud.innerHTML = '';
+  await new Promise(res => {
+    setPanel({ step:'Шаг 2 из 2 · номер', title:'Что значит число на шкурке?', text:'На обороте каждой шкурки напечатано, например, P120.',
+      html:`<div class="opts-v">${QS.map(([t],i) => `<button type="button" class="btn ghost" data-q="${i}">${t}</button>`).join('')}</div>` });
+    panel.classList.remove('mini');
+    panel.querySelectorAll('[data-q]').forEach(b => b.onclick = () => {
+      const ok = QS[+b.dataset.q][1];
+      if (ok){ panel.querySelectorAll('[data-q]').forEach(x => x.disabled = true); b.classList.add('on'); tone(784,.12,.08); setTimeout(res, 700); }
+      else { S.quizMiss++; b.disabled = true; burst({ freq:1200, q:2, dur:.12, gain:.25 }); toast('Нет. Подумай: P40 крупная, P240 мелкая','bad'); }
+    });
+  }); if (!alive()) return;
+  const order = S.used.every((n,i,a) => i === 0 || n > a[i-1]);
+  const m = Math.min(2, S.cross) + S.rescratch + S.quizMiss;
+  const stars = starsOf(m); best.sand = Math.max(best.sand||0, stars); saveBest(); refreshTags(); chord();
+  showResult({ title:'Шлифовка', stars,
+    mistakes:`Ты шлифовал шкурками: ${S.used.map(n => 'P'+n).join(' → ')}. ${order ? 'Порядок правильный, от крупной к мелкой.' : 'Порядок сбивался: после мелкой шкурки брал крупную.'} Поперёк волокон: ${S.cross} раз. Ошибок в вопросе про номер: ${S.quizMiss}.`,
+    lines:['Зернистость — это размер абразивных зёрен на шкурке.','Число с буквой P показывает, сколько отверстий на дюйм в сите для зёрен. Чем больше число, тем мельче зерно: P40 крупная, P240 мелкая.','Шлифуют сначала крупной шкуркой, потом всё мельче.','Шлифуют вдоль волокон, иначе остаются царапины.','На старой советской шкурке без буквы P номер означал размер зерна, и там наоборот: больше номер — крупнее зерно.'],
+    again: runSand });
+}
+function updateSand(dt){
+  if (mode !== 'sand'){ blockG.visible = false; return; }
+  if (S.done) return;
+  if (mouse.down && !S.done) flushSand();
+  const sm = smoothShare();
+  setMeter('sm', sm/.9, Math.round(Math.min(1, sm/.9)*100) + '%', sm >= .9 ? 'var(--ok)' : '');
+  const ar = avgRough(); setMeter('rg', ar, Math.round(ar*100) + '%', ar > .5 ? 'var(--bad)' : '');
+  const speed = S.moveAmt/Math.max(dt,.001); S.moveAmt = 0;
+  loopSet('cut', S.stroke && S.grit >= 0 ? clamp(speed*.6,0,1)*(.35 - S.grit*.05) : 0, .05);
+  if (S.stroke) blockG.rotation.y = Math.sin(performance.now()/90)*.03;
+}
+VIEWS.sandTop = { pos:[SD.x, 1.62, SD.z + .78], target:[SD.x, .87, SD.z - .02], hfov:62 };
+
+/* ================= DRAWING table ================= */
+const DT = V(2.2,0,-3.1), TILT = .42;
+const drawGrp = new THREE.Group(); scene.add(drawGrp);
+const boardFrame = new THREE.Group(); boardFrame.position.set(DT.x, .86, DT.z); boardFrame.rotation.x = -Math.PI/2 + TILT; drawGrp.add(boardFrame);
+{
+  for (const x of [-.55,.55]){ const l = box(.06,.82,.06,oak); l.position.set(DT.x + x,.41,DT.z - .2); drawGrp.add(l); const l2 = box(.06,.78,.06,oak); l2.position.set(DT.x + x,.39,DT.z + .22); drawGrp.add(l2); }
+  const bar = box(1.16,.05,.05,oak); bar.position.set(DT.x,.25,DT.z); drawGrp.add(bar);
+  const board = rbox(1.2,.85,.035, mat('#5D7D6A',.6),.01); board.position.z = -.02; boardFrame.add(board);
+  const ledge = box(1.2,.03,.04,oak); ledge.position.set(0,-.43,.01); boardFrame.add(ledge);
+  const ruler = box(1.0,.05,.008, mat('#D9D4C2',.5)); ruler.position.set(0,-.36,.012); boardFrame.add(ruler);
+  const tsq = box(.04,.82,.01, mat('#2B3A5A',.5)); tsq.position.set(-.62,0,.006); boardFrame.add(tsq);
+}
+const dCan = document.createElement('canvas'); dCan.width = 1414; dCan.height = 1000; const dg = dCan.getContext('2d');
+const dTex = new THREE.CanvasTexture(dCan); dTex.colorSpace = THREE.SRGBColorSpace; dTex.anisotropy = maxAniso;
+const paper = new THREE.Mesh(new THREE.PlaneGeometry(.99,.7), new THREE.MeshStandardMaterial({ map:dTex, roughness:.9, envMapIntensity:.25 }));
+paper.position.z = .0015; boardFrame.add(paper);
+const pencil = new THREE.Group(); boardFrame.add(pencil); pencil.visible = false;
+{
+  const body = new THREE.Mesh(new THREE.CylinderGeometry(.006,.006,.15,6), mat('#E2A72A',.5)); body.position.y = .085; pencil.add(body);
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(.006,.02,6), mat('#E7C69A',.7)); tip.position.y = .0; tip.rotation.x = Math.PI; pencil.add(tip);
+  pencil.rotation.x = Math.PI/2 - .5;
+}
+const PX2 = (x,y) => [(x/1414 - .5)*.99, (.5 - y/1000)*.7];
+// the drawing, in canvas pixels
+const wave = (x0,y0,x1,y1,amp=9,per=50) => { const pts = []; const n = Math.max(8, Math.round(Math.hypot(x1-x0,y1-y0)/6)); for (let i=0;i<=n;i++){ const t = i/n; const px = lerp(x0,x1,t), py = lerp(y0,y1,t); const nx = -(y1-y0), ny = x1-x0, L2 = Math.hypot(nx,ny); const off = Math.sin(t*Math.hypot(x1-x0,y1-y0)/per*Math.PI*2)*amp; pts.push([px + nx/L2*off, py + ny/L2*off]); } return pts; };
+const circle = (cx,cy,r) => { const p = []; for (let i=0;i<=72;i++){ const a = i/72*Math.PI*2; p.push([cx + Math.cos(a)*r, cy + Math.sin(a)*r]); } return p; };
+const LT = {
+  thick: { name:'Сплошная толстая основная', width:6, dash:[] },
+  thin:  { name:'Сплошная тонкая', width:2.2, dash:[] },
+  dash:  { name:'Штриховая', width:3.6, dash:[22,12] },
+  axis:  { name:'Штрихпунктирная тонкая', width:2.2, dash:[40,9,4,9] },
+  fold:  { name:'Штрихпунктирная с двумя точками', width:2.2, dash:[40,9,4,9,4,9] },
+  wave:  { name:'Сплошная волнистая', width:2.2, dash:[] },
+};
+const PLATE = { x:120, y:150, w:520, h:300 };
+const ELEMENTS = [
+  { id:'contour', type:'thick', ask:'Видимый контур пластины и отверстия: края детали, которые мы видим.',
+    paths:[[[PLATE.x,PLATE.y],[PLATE.x+PLATE.w,PLATE.y],[PLATE.x+PLATE.w,PLATE.y+PLATE.h],[PLATE.x,PLATE.y+PLATE.h],[PLATE.x,PLATE.y]], circle(330,300,70)] },
+  { id:'hidden', type:'dash', ask:'Паз на обратной стороне пластины. Отсюда его не видно, это невидимый контур.',
+    paths:[[[480,PLATE.y+40],[590,PLATE.y+40],[590,PLATE.y+260],[480,PLATE.y+260],[480,PLATE.y+40]]] },
+  { id:'axis', type:'axis', ask:'Оси отверстия: через его центр проводят осевые и центровые линии.',
+    paths:[[[330,205],[330,395]],[[235,300],[425,300]]] },
+  { id:'dim', type:'thin', ask:'Размер пластины: выносные и размерные линии со стрелками.',
+    paths:[[[PLATE.x,PLATE.y+PLATE.h+12],[PLATE.x,PLATE.y+PLATE.h+80]],[[PLATE.x+PLATE.w,PLATE.y+PLATE.h+12],[PLATE.x+PLATE.w,PLATE.y+PLATE.h+80]],[[PLATE.x,PLATE.y+PLATE.h+60],[PLATE.x+PLATE.w,PLATE.y+PLATE.h+60]]],
+    label:{ text:'200', x:PLATE.x+PLATE.w/2, y:PLATE.y+PLATE.h+48 }, arrows:[[PLATE.x,PLATE.y+PLATE.h+60,1],[PLATE.x+PLATE.w,PLATE.y+PLATE.h+60,-1]] },
+  { id:'fold', type:'fold', ask:'Развёртка коробочки: по этим линиям картон сгибают.',
+    paths:[[[930,330],[1150,330]],[[930,530],[1150,530]],[[930,330],[930,530]],[[1150,330],[1150,530]]] },
+  { id:'break', type:'wave', ask:'Длинный стержень нарисован не целиком: здесь чертёж обрывают.',
+    paths:[wave(470,700,470,860,10,40), wave(500,700,500,860,10,40)] },
+];
+// parts drawn from the start (thin outline of the box net, shaft edges)
+function drawBase(){
+  dg.fillStyle = '#F7F4EA'; dg.fillRect(0,0,1414,1000);
+  dg.strokeStyle = '#1C2333'; dg.lineWidth = 6; dg.strokeRect(40,40,1334,920);
+  dg.lineWidth = 3; dg.strokeRect(1010,820,364,140); dg.beginPath(); dg.moveTo(1010,870); dg.lineTo(1374,870); dg.stroke();
+  dg.fillStyle = '#1C2333'; dg.font = '700 30px PT Mono, monospace'; dg.fillText('Учебный чертёж', 1030, 925); dg.font = '600 24px PT Mono, monospace'; dg.fillText('Технология, 5 кл.', 1030, 858);
+  // box net outer contour (visible) and the shaft (visible) are pre-drawn
+  dg.setLineDash([]); dg.lineWidth = 6; dg.beginPath();
+  [[930,130],[1150,130],[1150,330],[1350,330],[1350,530],[1150,530],[1150,730],[930,730],[930,530],[730,530],[730,330],[930,330],[930,130]].forEach(([x,y],i) => i ? dg.lineTo(x,y) : dg.moveTo(x,y)); dg.stroke();
+  dg.beginPath(); dg.moveTo(140,720); dg.lineTo(470,720); dg.moveTo(140,840); dg.lineTo(470,840); dg.moveTo(500,720); dg.lineTo(820,720); dg.moveTo(500,840); dg.lineTo(820,840); dg.moveTo(140,720); dg.lineTo(140,840); dg.moveTo(820,720); dg.lineTo(820,840); dg.stroke();
+}
+function strokePaths(paths, t, k=1, ghost=false){
+  const st = LT[t];
+  let total = 0; const lens = paths.map(p => { let l = 0; for (let i=1;i<p.length;i++) l += Math.hypot(p[i][0]-p[i-1][0], p[i][1]-p[i-1][1]); total += l; return l; });
+  let left = total*k, tip = null;
+  dg.lineCap = 'butt'; dg.lineJoin = 'round';
+  if (ghost){ dg.strokeStyle = 'rgba(242,160,0,.8)'; dg.lineWidth = 18; dg.setLineDash([]); }
+  else { dg.strokeStyle = '#1C2333'; dg.lineWidth = st.width; dg.setLineDash(st.dash); }
+  paths.forEach((p,pi) => {
+    if (left <= 0) return; dg.beginPath(); dg.moveTo(p[0][0], p[0][1]); let used = 0;
+    for (let i=1;i<p.length;i++){ const a = p[i-1], b = p[i], l = Math.hypot(b[0]-a[0], b[1]-a[1]);
+      if (used + l <= left){ dg.lineTo(b[0],b[1]); used += l; tip = b; }
+      else { const f = (left - used)/l; tip = [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f]; dg.lineTo(tip[0], tip[1]); used = left; break; } }
+    dg.stroke(); left -= lens[pi];
+  });
+  dg.setLineDash([]);
+  return tip;
+}
+function drawExtras(el){
+  if (el.arrows) el.arrows.forEach(([x,y,s]) => { dg.fillStyle = '#1C2333'; dg.beginPath(); dg.moveTo(x,y); dg.lineTo(x+s*26,y-7); dg.lineTo(x+s*26,y+7); dg.closePath(); dg.fill(); });
+  if (el.label){ dg.fillStyle = '#1C2333'; dg.font = '700 34px PT Mono, monospace'; dg.textAlign = 'center'; dg.fillText(el.label.text, el.label.x, el.label.y); dg.textAlign = 'start'; }
+}
+const DR = { done:[], cur:null, anim:null, misses:0 };
+function renderDrawing(){
+  drawBase();
+  DR.done.forEach(el => { strokePaths(el.paths, el.type); drawExtras(el); });
+  let tip = null;
+  if (DR.cur && !DR.anim) strokePaths(DR.cur.paths, DR.cur.type, 1, true);
+  if (DR.anim){ tip = strokePaths(DR.anim.el.paths, DR.anim.el.type, DR.anim.k); if (DR.anim.k >= 1) drawExtras(DR.anim.el); }
+  dTex.needsUpdate = true;
+  if (tip){ const [x,y] = PX2(tip[0], tip[1]); pencil.visible = true; pencil.position.set(x, y, .004); } else pencil.visible = false;
+}
+function lineSample(t){
+  const st = LT[t], d = st.dash.length ? `stroke-dasharray="${st.dash.map(v => (v/2.2).toFixed(1)).join(' ')}"` : '';
+  const w = Math.max(1.2, st.width/2.2).toFixed(1);
+  const path = t === 'wave' ? 'M4,12 q8,-9 16,0 t16,0 t16,0 t16,0 t16,0' : 'M4,12 L86,12';
+  return `<svg viewBox="0 0 90 24" width="90" height="24" aria-hidden="true"><path d="${path}" fill="none" stroke="currentColor" stroke-width="${w}" ${d}/></svg>`;
+}
+async function runDraw(){
+  const run = ++RUN; const alive = () => run === RUN;
+  mode = 'draw'; $('#result').hidden = true; setHintTags([]);
+  DR.done = []; DR.cur = null; DR.anim = null; DR.misses = 0; renderDrawing();
+  flyTo(VIEWS.drawTop, 1.6);
+  hud.innerHTML = meterHTML('dl','Начерчено');
+  const list = ELEMENTS.slice(); for (let i=list.length-1;i>0;i--){ const j = Math.floor(Math.random()*(i+1)); [list[i],list[j]] = [list[j],list[i]]; }
+  for (let i=0;i<list.length;i++){
+    const el = list[i]; DR.cur = el; renderDrawing();
+    setMeter('dl', i/list.length, `${i} / ${list.length}`);
+    const types = Object.keys(LT);
+    await new Promise(res => {
+      setPanel({ step:`Чертёж · ${i+1} из ${list.length}`, title:'Какой линией начертить?', text:'',
+        html:`<p>${el.ask}</p><div class="opts-v lines">${types.map(t => `<button type="button" class="btn ghost" data-t="${t}">${lineSample(t)}<span>${LT[t].name}</span></button>`).join('')}</div>` });
+      panel.querySelector('.desc').hidden = true;
+      panel.querySelectorAll('[data-t]').forEach(b => b.onclick = () => {
+        if (b.dataset.t === el.type){ panel.querySelectorAll('[data-t]').forEach(x => x.disabled = true); b.classList.add('on'); tone(784,.1,.07); res(); }
+        else { DR.misses++; b.disabled = true; burst({ freq:1200, q:2, dur:.12, gain:.25 }); toast(`${LT[b.dataset.t].name} линией чертят другое`,'bad'); }
+      });
+    }); if (!alive()) return;
+    DR.cur = null; DR.anim = { el, k:0 };
+    loopSet('cut', .1, .05);
+    await tween(1.4, k => { DR.anim.k = k; renderDrawing(); }); if (!alive()) return;
+    loopSet('cut', 0, .05);
+    DR.done.push(el); DR.anim = null; renderDrawing();
+  }
+  setMeter('dl', 1, `${list.length} / ${list.length}`); chord(); toast('Чертёж готов','ok');
+  await sleep(1.2); if (!alive()) return;
+  const stars = starsOf(DR.misses); best.draw = Math.max(best.draw||0, stars); saveBest(); refreshTags();
+  showResult({ title:'Чертёжный стол', stars, mistakes:`Неверно выбранных линий: ${DR.misses}.`,
+    lines:['Сплошная толстая основная: видимый контур детали.','Сплошная тонкая: размерные и выносные линии, штриховка.','Штриховая: невидимый контур.','Штрихпунктирная тонкая: осевые и центровые линии.','Штрихпунктирная с двумя точками: линии сгиба на развёртках.','Сплошная волнистая: линия обрыва.'],
+    again: runDraw });
+}
+VIEWS.drawTop = { pos:[DT.x, 1.92, DT.z + .58], target:[DT.x, .88, DT.z + .02], hfov:50 };
+renderDrawing();
+
+/* ================= pointer ================= */
+const ray = new THREE.Raycaster(); const ndc = new THREE.Vector2();
+const pickTargets = [];
+lathe.traverse(o => { if (o.isMesh) { o.userData.station = 'lathe'; pickTargets.push(o); } });
+logAsm.traverse(o => { if (o.isMesh) { o.userData.station = 'lathe'; pickTargets.push(o); } });
+lobz.traverse(o => { if (o.isMesh) { o.userData.station = 'jig'; pickTargets.push(o); } });
+pressGrp.traverse(o => { if (o.isMesh) { o.userData.station = 'press'; pickTargets.push(o); } });
+millGrp.traverse(o => { if (o.isMesh) { o.userData.station = 'mill'; pickTargets.push(o); } });
+sandGrp.traverse(o => { if (o.isMesh) { o.userData.station = 'sand'; pickTargets.push(o); } });
+drawGrp.traverse(o => { if (o.isMesh) { o.userData.station = 'draw'; pickTargets.push(o); } });
+scene.children.forEach(o => { if (o.isMesh && Math.abs(o.position.x - .9) < .9 && o.position.z > -1.3 && o.position.z < -.2 && o.position.y < 1) { o.userData.station = 'jig'; pickTargets.push(o); } });
+function setNdc(e){ ndc.x = e.clientX/innerWidth*2 - 1; ndc.y = -(e.clientY/innerHeight)*2 + 1; }
+canvas.addEventListener('pointermove', e => {
+  mouse.x = e.clientX/innerWidth*2 - 1; mouse.y = -(e.clientY/innerHeight)*2 + 1;
+  if (mode === 'lathe' && L.step === 'bark' && mouse.down) scrub(e);
+  if (mode === 'sand' && mouse.down) sandMove(e);
+  if (mode === 'hub'){ setNdc(e); ray.setFromCamera(ndc, camera); const h = ray.intersectObjects(pickTargets, false)[0]; canvas.style.cursor = h ? 'pointer' : 'default'; }
+  else if ((mode === 'lathe' && L.step === 'bark') || (mode === 'sand' && !S.done)) canvas.style.cursor = 'crosshair'; else canvas.style.cursor = 'default';
+});
+canvas.addEventListener('pointerdown', e => {
+  initAudio(); mouse.down = true; try { canvas.setPointerCapture(e.pointerId); } catch(_){}
+  if (mode === 'hub'){ setNdc(e); ray.setFromCamera(ndc, camera); const h = ray.intersectObjects(pickTargets, false)[0]; if (h) openStation(h.object.userData.station); }
+  if (mode === 'lathe' && L.step === 'bark') scrub(e);
+  if (mode === 'sand' && !S.done) sandDown(e);
+});
+const endDown = () => { mouse.down = false; if (mode === 'sand') sandUp(); };
+canvas.addEventListener('pointerup', endDown); canvas.addEventListener('pointercancel', endDown);
+function scrub(e){
+  setNdc(e); ray.setFromCamera(ndc, camera);
+  const h = ray.intersectObject(bark, false)[0];
+  if (h && h.instanceId != null) stripBark(h.instanceId);
+}
+
+$('#sound').addEventListener('click', () => { initAudio(); muted = !muted; $('#sound').textContent = muted ? 'Звук: выкл' : 'Звук: вкл'; if (muted) allLoopsOff(); });
+
+/* ================= loop ================= */
+addEventListener('resize', () => { renderer.setSize(innerWidth, innerHeight, false); applyFov(); });
+const clock = new THREE.Clock();
+function frame(){
+  const rawDt = clock.getDelta(); const dt = Math.min(rawDt, .05); const rt = Math.min(rawDt, .2); lastDt = rt;
+  for (let i=tweens.length-1;i>=0;i--){ const tw = tweens[i]; tw.t += rt; const k = clamp(tw.t/tw.dur,0,1); tw.fn(k); if (k >= 1){ tweens.splice(i,1); tw.res(); } }
+  for (let i=waiters.length-1;i>=0;i--){ if (waiters[i].fn()){ const w = waiters.splice(i,1)[0]; w.res(); } }
+  updateLathe(dt); updateJig(dt); updatePress(dt); updateMill(dt); updateSand(dt);
+  if (mode !== 'lathe') logAsm.rotation.x -= .0 * dt;
+  steamPool.forEach(p => { if (!p.alive) return; p.life += dt; const k = p.life/p.dur; if (k >= 1){ p.alive = false; p.s.visible = false; return; } p.s.position.y += dt*.38; p.s.position.x += p.vx*dt; const sc = lerp(.3,.9,k); p.s.scale.set(sc,sc,1); p.s.material.opacity = Math.sin(Math.PI*k)*.65; });
+  chipPool.forEach(c => { if (!c.alive) return; c.life += dt; c.v.y -= dt*3; c.m.position.addScaledVector(c.v, dt); c.m.rotation.x += c.w.x*dt; c.m.rotation.y += c.w.y*dt; if (c.m.position.y < .01){ c.m.position.y = .01; c.v.set(0,0,0); c.w.set(0,0,0); } if (c.life > 3){ c.alive = false; c.m.visible = false; } });
+  updateCam(Math.min(rawDt, .2)); updateTags();
+  { const d = camera.position.distanceTo(curT); jigLight.position.copy(camera.position); jigLight.position.y += .3; jigLight.intensity = lerp(jigLight.intensity, (mode !== 'hub' && mode !== 'intro') ? 1.4*d*d : 0, .05); }
+  renderer.render(scene, camera);
+  requestAnimationFrame(frame);
+}
+applyFov(); refreshTags(); flyTo(hubView(), 2.4);
+requestAnimationFrame(frame);
+$('#loading').textContent = 'Мастерская готова.';
+$('#enter').disabled = false;
+$('#enter').onclick = () => { initAudio(); $('#intro').hidden = true; mode = 'hub'; tone(660,.1,.06); };
+window.addEventListener('error', e => { const l = $('#loading'); if (l && !$('#intro').hidden) l.textContent = 'Не удалось загрузить 3D: ' + e.message; });
+</script>
+
+</body>
+</html>
